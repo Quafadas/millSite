@@ -38,11 +38,11 @@ object plugin extends ScalaModule with PublishModule {
     PomSettings(
       description = "Mill plugin for mdoc, static site generation",
       organization = "io.github.quafadas",
-      url = "https://github.com/atooni/mill-mdoc",
+      url = "https://github.com/Quafadas/mill_scala3_mdoc_site",
       licenses = Seq(License.`Apache-2.0`),
-      versionControl = VersionControl.github("atooni", "mill-mdoc"),
+      versionControl = VersionControl.github("quafadas", "mill_scala3_mdoc_site"),
       developers =
-        Seq(Developer("atooni", "Andreas Gies", "https://github.com/atooni"))
+        Seq(Developer("quafadas", "Simon Parten", "https://github.com/quafadas"))
     )
   }
 
