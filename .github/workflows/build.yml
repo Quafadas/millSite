@@ -45,7 +45,6 @@ jobs:
 
   buildSite:
     runs-on: ubuntu-latest
-    java-version: 17
     steps:
       - uses: actions/checkout@v2
         with:
