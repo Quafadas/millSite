@@ -44,6 +44,7 @@ jobs:
         run: ./millw -i plugin.publishModule --sonatypeCreds "${{ secrets.SONATYPE_CREDS }}" --gpgArgs "--passphrase=${{ secrets.GPG_SECRET_KEY_PASS}},--batch,--yes,-a,-b,--pinentry-mode,loopback" --publishArtifacts __.publishArtifacts --readTimeout 600000 --awaitTimeout 600000 --release true --signed true
 
   buildSite:
+    needs: build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
