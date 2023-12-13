@@ -30,7 +30,7 @@ object plugin extends ScalaModule with PublishModule {
     ivy"com.lihaoyi::mill-scalalib:${millVersion()  }"
   )
 
-   def artifactSuffix = s"_mill${millPlatform()}_${scalaArtefactVersion()}"
+  def artifactSuffix = s"_mill${millPlatform()}_${scalaArtefactVersion()}"
 
   def publishVersion = VcsVersion.vcsState().format()
 
@@ -69,6 +69,5 @@ object site extends ScalaModule {
     os.proc("npm", "browser-sync", "start", "--server", "--ss", sitePathString(), "-w")
     .call(stdout = os.Inherit)
   }
-
 
 }

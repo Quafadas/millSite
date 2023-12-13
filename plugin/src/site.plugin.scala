@@ -72,6 +72,46 @@ trait SiteModule extends ScalaModule {
     .call(stdout = os.Inherit)
   }
 
+  def moduleName : T[String] = millSourcePath.segments.toList.last.toString()
+
+  def guessGithubAction: T[String] =
+s""""
+  buildSite:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-java@v1
+        with:
+          java-version: 17
+      - uses: actions/checkout@v3
+      - run: ./millw ${moduleName()}.docJar
+      - uses: actions/upload-artifact@master
+        with:
+          name: page
+          path: ${sitePathString()}
+
+  deploySite:
+    runs-on: ubuntu-latest
+    needs: buildSite
+    environment:
+      name: github-pages
+      url: $${{steps.deployment.outputs.page_url}}
+    steps:
+      - uses: actions/download-artifact@master
+        with:
+          name: page
+          path: .
+      - uses: actions/configure-pages@v1
+      - uses: actions/upload-pages-artifact@v1
+        with:
+          path: .
+      - id: deployment
+        uses: actions/deploy-pages@main
+"""
+
    def mdoc : T[PathRef] = T {
       val cp = (runClasspath()).map(_.path)
       val dir = T.dest.toIO.getAbsolutePath

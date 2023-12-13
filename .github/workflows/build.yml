@@ -5,8 +5,22 @@ permissions:
   pages: write
 
 jobs:
-  build:
-    runs-on: [ubuntu-latest]
+#   build:
+#     runs-on: [ubuntu-latest]
+#     steps:
+#       - uses: actions/checkout@v2
+#         with:
+#           fetch-depth: 0
+
+#       - uses: actions/setup-java@v4
+#         with:
+#           distribution: 'temurin'
+#           java-version: 17
+#       - run: ./millw -i -k plugin.publishLocal
+
+  publish:
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
         with:
@@ -15,24 +29,6 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: 17
-
-      - run: ./millw -i -k plugin.publishLocal
-
-      - id: sitePath
-        run: echo "sitePath = `./millw show site.sitePathString`" >> "$GITHUB_OUTPUT"
-
-  publish:
-    needs: build
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
-
-      - uses: actions/setup-java@v1
-        with:
           java-version: 17
 
       - name: Setup GPG secrets
@@ -45,7 +41,6 @@ jobs:
         run: ./millw -i mill.scalalib.PublishModule/publishAll --sonatypeCreds "${{ secrets.SONATYPE_CREDS }}" --gpgArgs "--passphrase=${{ secrets.GPG_SECRET_KEY_PASS}},--batch,--yes,-a,-b,--pinentry-mode,loopback" --publishArtifacts __.publishArtifacts --readTimeout 600000 --awaitTimeout 600000 --release true --signed true
 
   buildSite:
-    needs: build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -68,7 +63,6 @@ jobs:
     environment:
       name: github-pages
       url: ${{steps.deployment.outputs.page_url}}
-
     steps:
       - uses: actions/download-artifact@master
         with:
