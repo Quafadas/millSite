@@ -54,7 +54,7 @@ jobs:
         with:
           java-version: 17
       - uses: actions/checkout@v3
-      - run: mill site.docJar
+      - run: ./millw site.docJar
       - uses: actions/upload-artifact@master
         with:
           name: page
@@ -63,7 +63,7 @@ jobs:
 
   deploySite:
     runs-on: ubuntu-latest
-    needs: build
+    needs: buildSite
     environment:
       name: github-pages
       url: ${{steps.deployment.outputs.page_url}}
