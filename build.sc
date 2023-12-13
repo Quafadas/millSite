@@ -23,7 +23,7 @@ object plugin extends ScalaModule with PublishModule {
   def scalaArtefactVersion: T[String] =
     scalaVersion.map(_.split("\\.").take(2).mkString("."))
 
-  override def artifactName = "mill.site.mdoc"
+  override def artifactName = "mill_scala3_site_mdoc"
 
   override def compileIvyDeps = Agg(
     ivy"com.lihaoyi::mill-main:${millVersion()}",
