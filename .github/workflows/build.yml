@@ -54,8 +54,6 @@ jobs:
       - uses: actions/setup-java@v1
         with:
           java-version: ${{ matrix.java-version }}
-
-    steps:
       - uses: actions/checkout@v3
       - run: mill site.docJar
       - uses: actions/upload-artifact@master
