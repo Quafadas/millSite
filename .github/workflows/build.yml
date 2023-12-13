@@ -58,8 +58,7 @@ jobs:
       - uses: actions/upload-artifact@master
         with:
           name: page
-          path: ${{steps.build.outputs.sitePath}}
-          if-no-files-found: error
+          path: out/site/docJar.dest/javadoc
 
   deploySite:
     runs-on: ubuntu-latest

@@ -3,6 +3,7 @@
 out
 .metals
 .vscode
+.bloop
 node_modules
 package.json
 package-lock.json
