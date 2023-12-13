@@ -61,10 +61,12 @@ object site extends ScalaModule {
 
   def scalaVersion: T[String] = "3.3.1"
 
+  def sitePath : T[os.Path] = T{docJar().path / os.up / "javadoc" }
+
+  def sitePathString : T[String] = T{sitePath().toString()}
+
   def serveLocal() = T.command {
-    val path = docJar().path / os.up / "javadoc"
-    println(path)
-    os.proc("npx", "browser-sync", "start", "--server", "--ss", path.toString(), "-w")
+    os.proc("npm", "browser-sync", "start", "--server", "--ss", sitePathString(), "-w")
     .call(stdout = os.Inherit)
   }
 

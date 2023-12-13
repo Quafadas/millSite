@@ -36,6 +36,12 @@ trait SiteModule extends ScalaModule {
 
   def scalaLibrary : T[Dep] = T(ivy"org.scala-lang:scala-library:${scalaVersion}")
 
+  def sitePath : T[os.Path] = T{docJar().path / os.up / "javadoc" }
+
+  def sitePathString : T[String] = T{sitePath.toString()}
+
+  // def viaNpm : T[Boolean] = T { true }
+
   // def generatedMDocs = T{
   //   os.walk(mdoc().path).filter(_.ext == "md")
   // }
@@ -62,9 +68,7 @@ trait SiteModule extends ScalaModule {
   }
 
   def serveLocal() = T.command {
-    val path = docJar().path / os.up / "javadoc"
-    println(path)
-    os.proc("npx", "browser-sync", "start", "--server", "--ss", path.toString(), "-w")
+    os.proc("npx", "browser-sync", "start", "--server", "--ss", sitePathString(), "-w")
     .call(stdout = os.Inherit)
   }
 
