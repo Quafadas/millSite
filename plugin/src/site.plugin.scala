@@ -1,8 +1,8 @@
-import mill._, scalalib._
-import os.Path
+package mill.site
 
-import mill.{Agg, PathRef, T}
-import os.Path
+
+import mill._
+import mill.scalalib._
 
 trait SiteModule extends ScalaModule {
 
@@ -61,7 +61,7 @@ trait SiteModule extends ScalaModule {
     Seq(PathRef(T.dest))
   }
 
-  def serve() = T.command {
+  def serveLocal() = T.command {
     val path = docJar().path / os.up / "javadoc"
     println(path)
     os.proc("npx", "browser-sync", "start", "--server", "--ss", path.toString(), "-w")

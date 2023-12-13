@@ -1,5 +1,8 @@
 # mill_scala3_mdoc_site
 
-A one plugin documentation experience.
 
--
+
+
+May be more developed in terms of classpath safety!
+
+https://github.com/hmf/mdocMill

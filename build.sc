@@ -8,6 +8,7 @@ import de.tobiasroeser.mill.vcs.version._
 import mill.{Agg, PathRef, T}
 import mill.define.{Cross, Module, Target}
 import mill.modules.Util
+import mill._
 import mill.scalalib._
 import mill.scalalib.publish._
 
@@ -29,7 +30,7 @@ object plugin extends ScalaModule with PublishModule {
     ivy"com.lihaoyi::mill-scalalib:${millVersion()  }"
   )
 
-   def artifactSuffix = s"_mill${millPlatform}_${scalaArtefactVersion}"
+   def artifactSuffix = s"_mill${millPlatform()}_${scalaArtefactVersion()}"
 
   def publishVersion = VcsVersion.vcsState().format()
 
@@ -44,5 +45,28 @@ object plugin extends ScalaModule with PublishModule {
         Seq(Developer("atooni", "Andreas Gies", "https://github.com/atooni"))
     )
   }
+
+}
+
+
+object itest extends MillIntegrationTestModule {
+
+  def millTestVersion = "0.11.0"
+
+  def pluginsUnderTest = Seq(plugin)
+
+}
+
+object site extends ScalaModule {
+
+  def scalaVersion: T[String] = "3.3.1"
+
+  def serveLocal() = T.command {
+    val path = docJar().path / os.up / "javadoc"
+    println(path)
+    os.proc("npx", "browser-sync", "start", "--server", "--ss", path.toString(), "-w")
+    .call(stdout = os.Inherit)
+  }
+
 
 }
