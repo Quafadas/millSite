@@ -3,7 +3,6 @@ on: [push, pull_request]
 jobs:
   build:
     runs-on: [ubuntu-latest]
-
     outputs:
       sitePath: ${{ steps.sitePath.outputs.sitePath }}
 
@@ -19,7 +18,7 @@ jobs:
       - run: ./millw -i -k plugin.publishLocal
 
       - id: sitePath
-        run: ./millw show site.sitePathString
+        run: echo "sitePath = `./millw show site.sitePathString`" >> "$GITHUB_OUTPUT"
 
   publish:
     needs: build
