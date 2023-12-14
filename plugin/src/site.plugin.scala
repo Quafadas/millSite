@@ -60,13 +60,13 @@ trait SiteModule extends ScalaModule {
     */
 
   override def docResources = T {
-    val toProcess = super.docResources()
-    for (aDoc <- toProcess) {
-      val orig = aDoc.toString()
-      val newStub = T.dest.toString()
-      val mdPath = orig.replace(mdocSourceDir().toString(), newStub)
-      os.copy.over(mdocSourceDir(), T.dest)
-    }
+    val out = super.docResources()
+    // for (aDoc <- toProcess) {
+    //   val orig = aDoc.toString()
+    //   val newStub = T.dest.toString()
+    //   val mdPath = orig.replace(mdocSourceDir().toString(), newStub)
+    //   os.copy.over(mdocSourceDir(), T.dest)
+    // }
     os.copy.over(mdoc().path, T.dest)
 
     Seq(PathRef(T.dest))
