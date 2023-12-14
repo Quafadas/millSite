@@ -138,11 +138,11 @@ trait SiteModule extends ScalaModule {
         uses: actions/deploy-pages@main
 """
 
-  val separator = java.io.File.pathSeparatorChar
-  def toArgument(p: Agg[os.Path]) = p.iterator.mkString(s"$separator")
+  val separator : Char = java.io.File.pathSeparatorChar
+  def toArgument(p: Agg[os.Path]) : String = p.iterator.mkString(s"$separator")
 
   def mdoc: T[PathRef] = T {
-    val cp = (runClasspath()).map(_.path)
+    val cp = (compileClasspath()).map(_.path)
     val rp = mDocLibs().map(_.path)
     val dir = T.dest.toIO.getAbsolutePath
     val dirParams = mdocSources()
