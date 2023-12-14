@@ -53,28 +53,18 @@ trait SiteModule extends ScalaModule {
 
   def sitePath: T[os.Path] = T { docJar().path / os.up / "javadoc" }
 
-  def sitePathString: T[String] = T { sitePath.toString() }
+  def sitePathString: T[String] = T { sitePath().toString() }
 
-  // def viaNpm : T[Boolean] = T { true }
-
-  // def generatedMDocs = T{
-  //   os.walk(mdoc().path).filter(_.ext == "md")
-  // }
-
-  // def generatedStaticSiteBeforeMdoc = T{
-  //   os.walk((docJar().path / os.up / "static"))
-  // }
+  /**
+    * Overwrites any md files which have been processed by mdoc.
+    */
 
   override def docResources = T {
-    // os.copy.over(super.docResources(), T.dest / "docs")
-    // os.copy.over(mdoc().path , T.dest / "docs" / "_docs")
-    // println(super.docResources())
     val toProcess = super.docResources()
     for (aDoc <- toProcess) {
       val orig = aDoc.toString()
       val newStub = T.dest.toString()
       val mdPath = orig.replace(mdocSourceDir().toString(), newStub)
-
       os.copy.over(mdocSourceDir(), T.dest)
     }
     os.copy.over(mdoc().path, T.dest)
@@ -83,10 +73,12 @@ trait SiteModule extends ScalaModule {
   }
 
   def npmInstallServeDeps() = T.command {
+    println("npm install -g browser-sync")
     os.proc("npm", "install", "-g", "browser-sync").call(stdout = os.Inherit)
   }
 
   def serveLocal() = T.command {
+    println("browser-sync start --server --ss " + sitePathString() + " -w")
     os.proc("browser-sync","start",
       "--server",
       "--ss",
