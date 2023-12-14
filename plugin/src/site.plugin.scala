@@ -142,26 +142,26 @@ trait SiteModule extends ScalaModule {
   def toArgument(p: Agg[os.Path]) : String = p.iterator.mkString(s"$separator")
 
   def mdoc: T[PathRef] = T {
-    val cp = (compileClasspath()).map(_.path)
+    val cp = compileClasspath().map(_.path)
     val rp = mDocLibs().map(_.path)
     val dir = T.dest.toIO.getAbsolutePath
     val dirParams = mdocSources()
       .map(pr =>
         Seq(
-          s"--in",
+          "--in",
           pr.path.toIO.getAbsolutePath,
           "--out",
           dir,
           "--classpath",
-          toArgument(cp)
+          toArgument(cp ++ rp)
         )
       )
       .iterator
       .flatten
       .toSeq
     mill.util.Jvm.runSubprocess(
-      "mdoc.Main",
-      rp,
+      mainClass = "mdoc.Main",
+      classPath = rp,
       jvmArgs = forkArgs(),
       envArgs = forkEnv(),
       dirParams,
