@@ -82,24 +82,29 @@ trait SiteModule extends ScalaModule {
     Seq(PathRef(T.dest))
   }
 
-  def npmInstallServeDeps = T.command {
+  def npmInstallServeDeps() = T.command {
     os.proc("npm", "install", "-g", "browser-sync").call(stdout = os.Inherit)
   }
 
-  def serveLocal2 = T.command {
-    os.proc("browser-sync").call(stdout = os.Inherit)
-  }
-
   def serveLocal() = T.command {
-    os.proc(
-      "browser-sync",
-      "start",
+    os.proc("browser-sync","start",
       "--server",
       "--ss",
       sitePathString(),
       "-w"
     ).call(stdout = os.Inherit)
   }
+
+  // def serveLocal() = T.command {
+  //   os.proc(
+  //     "browser-sync",
+  //     "start",
+  //     "--server",
+  //     "--ss",
+  //     sitePathString(),
+  //     "-w"
+  //   ).call(stdout = os.Inherit)
+  // }
 
   def moduleName: T[String] = millSourcePath.segments.toList.last.toString()
 
