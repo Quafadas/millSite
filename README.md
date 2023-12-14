@@ -3,6 +3,6 @@
 
 
 
-May be more developed in terms of classpath safety!
-
-https://github.com/hmf/mdocMill
+Much plagarism...
+- https://github.com/hmf/mdocMill
+- https://github.com/atooni/mill-mdoc
