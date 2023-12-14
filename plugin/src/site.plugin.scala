@@ -122,7 +122,7 @@ s""""
           "--classpath", cp.map(_.toIO.getAbsolutePath).mkString(":"),
         )
         ).iterator.flatten.toSeq
-      mill.util.Jvm.runSubprocess("mdoc.Main", cp, Seq.empty, Map.empty, dirParams)
+      mill.util.Jvm.runSubprocess("mdoc.Main", cp, Seq.empty, Map.empty, dirParams, useCpPassingJar=true) // classpath can be long. On windows will barf without passing as Jar
       PathRef(T.dest)
     }
 }

@@ -51,7 +51,7 @@ object plugin extends ScalaModule with PublishModule {
 
 object itest extends MillIntegrationTestModule {
 
-  def millTestVersion = "0.11.0"
+  def millTestVersion = "0.11.5"
 
   def pluginsUnderTest = Seq(plugin)
 
