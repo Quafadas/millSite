@@ -44,8 +44,7 @@ trait SiteModule extends ScalaModule {
   override def scalaDocOptions =
     super.scalaDocOptions() ++ Seq[String]("-snippet-compiler:compile")
 
-  // persistent to help prevent browser reloading going crazy, lets see if that's confusing or not.
-  def siteGen: T[os.Path] = T.persistent {
+  def siteGen: T[os.Path] = T {
     val apidir = apiOnlyGen()
     val docdir = docOnlyGen()
     // mdoc()
