@@ -45,8 +45,10 @@ trait SiteModule extends ScalaModule {
     super.scalaDocOptions() ++ Seq[String]("-snippet-compiler:compile")
 
   def siteGen: T[os.Path] = T {
+    mdocSourceDir()
     val apidir = apiOnlyGen()
     val docdir = docOnlyGen()
+
     // mdoc()
     os.copy.over(apidir, T.dest)
     os.copy.over(docdir / "docs", T.dest / "docs")
