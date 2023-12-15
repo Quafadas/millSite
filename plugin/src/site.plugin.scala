@@ -5,6 +5,7 @@ import mill.scalalib._
 import mill.api.Result
 import mill.util.Jvm.createJar
 import mill.api.PathRef
+import mill.scalalib.api.CompilationResult
 
 trait SiteModule extends ScalaModule {
 
@@ -92,7 +93,7 @@ trait SiteModule extends ScalaModule {
         scalacPluginClasspath(),
         options ++ compileCpArg() ++ scalaDocOptions()
           ++ Lib
-            .findSourceFiles(Seq(compile().classes), Seq("tasty")).map(_.toString()) // find classes in this artefact _only_!
+            .findSourceFiles(Seq(fakeSource().classes), Seq("tasty")).map(_.toString()) // find classes in this artefact _only_!
 
 
       ) match {
@@ -107,6 +108,28 @@ trait SiteModule extends ScalaModule {
     os.write.over(emptyDoc, "# Fake Doc \n \n To trick the API generator into having a link to the docs part of the website".getBytes() )
     PathRef(T.dest)
   }
+
+  def fakeSource : T[CompilationResult] =  T {
+    val emptyDoc =  T.dest / "src" / "fake.scala"
+    os.makeDir(emptyDoc / os.up)
+    os.write.over(emptyDoc, "package fake \n \n object Fake: \n  def apply() = ???" )
+    zincWorker()
+      .worker()
+      .compileMixed(
+        upstreamCompileOutput = upstreamCompileOutput(),
+        sources = Seq(emptyDoc),
+        compileClasspath = compileClasspath().map(_.path),
+        javacOptions = javacOptions(),
+        scalaVersion = scalaVersion(),
+        scalaOrganization = scalaOrganization(),
+        scalacOptions = allScalacOptions(),
+        compilerClasspath = scalaCompilerClasspath(),
+        scalacPluginClasspath = scalacPluginClasspath(),
+        reporter = T.reporter.apply(hashCode),
+        reportCachedProblems = zincReportCachedProblems()
+      )
+  }
+
 
 
   def apiOnlyGen : T[os.Path] = T {
