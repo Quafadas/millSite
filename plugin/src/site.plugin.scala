@@ -2,6 +2,8 @@ package mill.site
 
 import mill._
 import mill.scalalib._
+import mill.api.Result
+import mill.util.Jvm.createJar
 
 trait SiteModule extends ScalaModule {
 
@@ -37,6 +39,86 @@ trait SiteModule extends ScalaModule {
       super.docSources()
     }
   }
+
+  override def docJar: T[PathRef] = T {
+
+    println("docJar start")
+
+    val compileCp = Seq(
+      "-classpath",
+      compileClasspath().iterator
+        .filter(_.path.ext != "pom")
+        .map(_.path)
+        .mkString(java.io.File.pathSeparator)
+    )
+
+    def packageWithZinc(
+        options: Seq[String],
+        files: Seq[os.Path],
+        javadocDir: os.Path
+    ) = {
+      if (files.isEmpty) Result.Success(createJar(Agg(javadocDir))(T.dest))
+      else {
+        println("packaging")
+        zincWorker()
+          .worker()
+          .docJar(
+            scalaVersion(),
+            scalaOrganization(),
+            scalaDocClasspath(),
+            scalacPluginClasspath(),
+            options ++ compileCp ++ scalaDocOptions() ++
+              files.map(_.toString())
+          ) match {
+          case true  => Result.Success(createJar(Agg(javadocDir))(T.dest))
+          case false => Result.Failure("docJar generation failed")
+        }
+      }
+    }
+    println("javadocdir")
+
+
+    val javadocDir = T.dest / "javadoc"
+    println(javadocDir)
+    os.makeDir.all(javadocDir)
+
+    // Scaladoc 3 allows including static files in documentation, but it only
+    // supports one directory. Hence, to allow users to generate files
+    // dynamically, we consolidate all files from all `docSources` into one
+    // directory.
+    println("static")
+    val combinedStaticDir = T.dest / "static"
+    os.makeDir.all(combinedStaticDir)
+
+    for {
+      ref <- docResources()
+      docResource = ref.path
+      if os.exists(docResource) && os.isDir(docResource)
+      children = os.walk(docResource)
+      child <- children
+      if os.isFile(child) && !child.last.startsWith(".")
+    } {
+      println("copy doc resource")
+      os.copy.over(
+        child,
+        combinedStaticDir / child.subRelativeTo(docResource),
+        createFolders = true
+      )
+    }
+
+    println("site")
+    packageWithZinc(
+      Seq(
+        "-d",
+        javadocDir.toNIO.toString,
+        "-siteroot",
+        combinedStaticDir.toNIO.toString
+      ),
+      Lib.findSourceFiles(docSources(), Seq("tasty")),
+      javadocDir
+    )
+  }
+
 
   def mdocSourceDir = T { super.millSourcePath / "docs" }
 

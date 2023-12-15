@@ -11,6 +11,8 @@ import mill.modules.Util
 import mill._
 import mill.scalalib._
 import mill.scalalib.publish._
+import mill.api.Result
+import mill.util.Jvm.createJar
 
 object plugin extends ScalaModule with PublishModule {
 
@@ -27,7 +29,7 @@ object plugin extends ScalaModule with PublishModule {
 
   override def compileIvyDeps = Agg(
     ivy"com.lihaoyi::mill-main:${millVersion()}",
-    ivy"com.lihaoyi::mill-scalalib:${millVersion()  }"
+    ivy"com.lihaoyi::mill-scalalib:${millVersion()}"
   )
 
   def artifactSuffix = s"_mill${millPlatform()}_${scalaArtefactVersion()}"
@@ -40,14 +42,15 @@ object plugin extends ScalaModule with PublishModule {
       organization = "io.github.quafadas",
       url = "https://github.com/Quafadas/mill_scala3_mdoc_site",
       licenses = Seq(License.`Apache-2.0`),
-      versionControl = VersionControl.github("quafadas", "mill_scala3_mdoc_site"),
-      developers =
-        Seq(Developer("quafadas", "Simon Parten", "https://github.com/quafadas"))
+      versionControl =
+        VersionControl.github("quafadas", "mill_scala3_mdoc_site"),
+      developers = Seq(
+        Developer("quafadas", "Simon Parten", "https://github.com/quafadas")
+      )
     )
   }
 
 }
-
 
 object itest extends MillIntegrationTestModule {
 
@@ -59,15 +62,101 @@ object itest extends MillIntegrationTestModule {
 
 object site extends ScalaModule {
 
+  override def docJar: T[PathRef] = T {
+
+    println("docJar start")
+
+    val compileCp = Seq(
+      "-classpath",
+      compileClasspath().iterator
+        .filter(_.path.ext != "pom")
+        .map(_.path)
+        .mkString(java.io.File.pathSeparator)
+    )
+
+    def packageWithZinc(
+        options: Seq[String],
+        files: Seq[os.Path],
+        javadocDir: os.Path
+    ) = {
+      if (files.isEmpty) Result.Success(createJar(Agg(javadocDir))(T.dest))
+      else {
+        println("packaging")
+        zincWorker()
+          .worker()
+          .docJar(
+            scalaVersion(),
+            scalaOrganization(),
+            scalaDocClasspath(),
+            scalacPluginClasspath(),
+            options ++ compileCp ++ scalaDocOptions() ++
+              files.map(_.toString())
+          ) match {
+          case true  => Result.Success(createJar(Agg(javadocDir))(T.dest))
+          case false => Result.Failure("docJar generation failed")
+        }
+      }
+    }
+    println("javadocdir")
+
+
+    val javadocDir = T.dest / "javadoc"
+    println(javadocDir)
+    os.makeDir.all(javadocDir)
+
+    // Scaladoc 3 allows including static files in documentation, but it only
+    // supports one directory. Hence, to allow users to generate files
+    // dynamically, we consolidate all files from all `docSources` into one
+    // directory.
+    println("static")
+    val combinedStaticDir = T.dest / "static"
+    os.makeDir.all(combinedStaticDir)
+
+    for {
+      ref <- docResources()
+      docResource = ref.path
+      if os.exists(docResource) && os.isDir(docResource)
+      children = os.walk(docResource)
+      child <- children
+      if os.isFile(child) && !child.last.startsWith(".")
+    } {
+      println("copy doc resource")
+      os.copy.over(
+        child,
+        combinedStaticDir / child.subRelativeTo(docResource),
+        createFolders = true
+      )
+    }
+
+    println("site")
+    packageWithZinc(
+      Seq(
+        "-d",
+        javadocDir.toNIO.toString,
+        "-siteroot",
+        combinedStaticDir.toNIO.toString
+      ),
+      Lib.findSourceFiles(docSources(), Seq("tasty")),
+      javadocDir
+    )
+  }
+
   def scalaVersion: T[String] = "3.3.1"
 
-  def sitePath : T[os.Path] = T{docJar().path / os.up / "javadoc" }
+  def sitePath: T[os.Path] = T { docJar().path / os.up / "javadoc" }
 
-  def sitePathString : T[String] = T{sitePath().toString()}
+  def sitePathString: T[String] = T { sitePath().toString() }
 
   def serveLocal() = T.command {
-    os.proc("npm", "browser-sync", "start", "--server", "--ss", sitePathString(), "-w")
-    .call(stdout = os.Inherit)
+    os.proc(
+      "npm",
+      "browser-sync",
+      "start",
+      "--server",
+      "--ss",
+      sitePathString(),
+      "-w"
+    ).call(stdout = os.Inherit)
   }
 
 }
