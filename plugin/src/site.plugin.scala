@@ -24,6 +24,7 @@ trait SiteModule extends ScalaModule {
 
   def mdocDepBound: T[Agg[BoundDep]] =
     mdocDep().map(Lib.depToBoundDep(_, scalaVersion()))
+
   def mDocLibs = T { resolveDeps(mdocDepBound) }
 
   // This is the source directory, of the entire site.
@@ -131,100 +132,7 @@ trait SiteModule extends ScalaModule {
   }
 
 
-  override def docJar: T[PathRef] = T {
-
-    println("docJar start")
-
-    val compileCp = Seq(
-      "-classpath",
-      compileClasspath().iterator
-        .filter(_.path.ext != "pom")
-        .map(_.path)
-        .mkString(java.io.File.pathSeparator)
-    )
-
-    def packageWithZinc(
-        options: Seq[String],
-        files: Seq[os.Path],
-        javadocDir: os.Path
-    ) = {
-      if (files.isEmpty) Result.Success(createJar(Agg(javadocDir))(T.dest))
-      else {
-        println("packaging")
-        zincWorker()
-          .worker()
-          .docJar(
-            scalaVersion(),
-            scalaOrganization(),
-            scalaDocClasspath(),
-            scalacPluginClasspath(),
-            options ++ compileCp ++ scalaDocOptions() ++
-              files.map(_.toString())
-          ) match {
-          case true  => Result.Success(createJar(Agg(javadocDir))(T.dest))
-          case false => Result.Failure("docJar generation failed")
-        }
-      }
-    }
-    println("javadocdir")
-
-    val javadocDir = T.dest / "javadoc"
-    println(javadocDir)
-    os.makeDir.all(javadocDir)
-
-    // Scaladoc 3 allows including static files in documentation, but it only
-    // supports one directory. Hence, to allow users to generate files
-    // dynamically, we consolidate all files from all `docSources` into one
-    // directory.
-    println("static")
-    val combinedStaticDir = T.dest / "static"
-    os.makeDir.all(combinedStaticDir)
-
-    for {
-      ref <- docResources()
-      docResource = ref.path
-      if os.exists(docResource) && os.isDir(docResource)
-      children = os.walk(docResource)
-      child <- children
-      if os.isFile(child) && !child.last.startsWith(".")
-    } {
-      println("copy doc resource")
-      os.copy.over(
-        child,
-        combinedStaticDir / child.subRelativeTo(docResource),
-        createFolders = true
-      )
-    }
-
-    println("site")
-    packageWithZinc(
-      Seq(
-        "-siteroot",
-        combinedStaticDir.toNIO.toString
-      ),
-      Lib.findSourceFiles(docSources(), Seq("tasty")),
-      javadocDir
-    )
-    // packageWithZinc(
-    //   Seq(
-    //     "-d",
-    //     javadocDir.toNIO.toString,
-    //     "-siteroot",
-    //     combinedStaticDir.toNIO.toString
-    //   ),
-    //   Lib.findSourceFiles(docSources(), Seq("tasty")),
-    //   javadocDir
-    // )
-  }
-
   def mdocSourceDir = T { super.millSourcePath / "docs" }
-
-  // override def ivyDeps = T{ Agg() }
-
-  // override def ivyDeps: T[Agg[Dep]] = T {
-  //   super.ivyDeps() ++ Agg(scalaMdocDep()) ++ scalaLibraryIvyDeps() ++ Lib
-  //     .scalaCompilerIvyDeps(scalaOrganization(), scalaVersion())
-  // }
 
   def scalaLibrary: T[Dep] = T(
     ivy"org.scala-lang:scala-library:${scalaVersion}"
@@ -239,12 +147,6 @@ trait SiteModule extends ScalaModule {
 
   override def docResources = T {
     val out = super.docResources()
-    // for (aDoc <- toProcess) {
-    //   val orig = aDoc.toString()
-    //   val newStub = T.dest.toString()
-    //   val mdPath = orig.replace(mdocSourceDir().toString(), newStub)
-    //   os.copy.over(mdocSourceDir(), T.dest)
-    // }
     os.copy.over(mdoc().path, T.dest)
 
     Seq(PathRef(T.dest))
@@ -260,19 +162,6 @@ trait SiteModule extends ScalaModule {
     os.proc("browser-sync", "start", "--server", "--ss", sitePathString(), "-w")
       .call(stdout = os.Inherit)
   }
-
-  // def serveLocal() = T.command {
-  //   os.proc(
-  //     "browser-sync",
-  //     "start",
-  //     "--server",
-  //     "--ss",
-  //     sitePathString(),
-  //     "-w"
-  //   ).call(stdout = os.Inherit)
-  // }
-
-  // def moduleName: T[String] = millSourcePath.segments.toList.last.toString()
 
   def guessGithubAction: T[String] =
     s""""
