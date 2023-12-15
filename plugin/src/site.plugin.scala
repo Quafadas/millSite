@@ -73,8 +73,8 @@ trait SiteModule extends ScalaModule {
     }
 
     for {
-      aDoc <- os.walk(mdocSourceDir().path)
-      rel = (combinedStaticDir / aDoc.subRelativeTo(mdocSourceDir().path))
+      aDoc <- mdocSources().map(_.path)
+      rel = (combinedStaticDir / aDoc.subRelativeTo(mdocDir))
       if !os.exists(rel)
     } {
       os.copy(aDoc, rel)
@@ -298,7 +298,9 @@ trait SiteModule extends ScalaModule {
       .map(PathRef(_))
   }
 
-  def mdocSourceDir = T.source { super.millSourcePath / "docs" }
+  def mdocSourceDir = T.source { mdocDir }
+
+  def mdocDir = super.millSourcePath / "docs"
 
 
 
@@ -313,7 +315,7 @@ trait SiteModule extends ScalaModule {
           "--in",
           pr.toIO.getAbsolutePath,
           "--out",
-          (T.dest / pr.subRelativeTo(mdocSourceDir().path)).toIO.getAbsolutePath
+          (T.dest / pr.subRelativeTo(mdocDir)).toIO.getAbsolutePath
         )
       }
       .iterator
