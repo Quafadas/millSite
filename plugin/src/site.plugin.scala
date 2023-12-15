@@ -44,8 +44,8 @@ trait SiteModule extends ScalaModule {
   override def scalaDocOptions =
     super.scalaDocOptions() ++ Seq[String]("-snippet-compiler:compile")
 
-  def siteGen: T[os.Path] = T {
-    mdocSourceDir()
+  def siteGen: T[os.Path] = T.persistent {
+    mdocSourceDir() // force this to trigger on change to dir sources
     val apidir = apiOnlyGen()
     val docdir = docOnlyGen()
 
