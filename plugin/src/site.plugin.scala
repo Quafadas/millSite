@@ -29,9 +29,6 @@ trait SiteModule extends ScalaModule {
 
   def mDocLibs = T { resolveDeps(mdocDepBound) }
 
-  // This is the source directory, of the entire site.
-  def mdocSources: T[Seq[PathRef]] = T.sources { mdocSourceDir() }
-
   def transitiveDocSources: T[Seq[PathRef]] =
     T { T.traverse(moduleDeps)(_.docSources)().flatten }
 
@@ -60,29 +57,29 @@ trait SiteModule extends ScalaModule {
     compile()
     val javadocDir = T.dest / "javadoc"
     os.makeDir.all(javadocDir)
-    val combinedStaticDir = T.dest / "static"
-    os.makeDir.all(combinedStaticDir)
+    // val combinedStaticDir = T.dest / "static"
+    // os.makeDir.all(combinedStaticDir)
 
-    for {
-      ref <- docResources() // shouldn't be much here...
-      docResource = ref.path
-      if os.exists(docResource) && os.isDir(docResource)
-      children = os.walk(docResource)
-      child <- children
-      if os.isFile(child) && !child.last.startsWith(".")
-    } {
-      os.copy.over(
-        child,
-        combinedStaticDir / child.subRelativeTo(docResource),
-        createFolders = true
-      )
-    }
+    // for {
+    //   ref <- docResources() // shouldn't be much here...
+    //   docResource = ref.path
+    //   if os.exists(docResource) && os.isDir(docResource)
+    //   children = os.walk(docResource)
+    //   child <- children
+    //   if os.isFile(child) && !child.last.startsWith(".")
+    // } {
+    //   os.copy.over(
+    //     child,
+    //     combinedStaticDir / child.subRelativeTo(docResource),
+    //     createFolders = true
+    //   )
+    // }
     val compileCp = compileCpArg
     val options = Seq(
       "-d",
       javadocDir.toNIO.toString,
       "-siteroot",
-      combinedStaticDir.toNIO.toString
+      allDocs().toNIO.toString
     )
     zincWorker()
       .worker()
@@ -163,9 +160,6 @@ trait SiteModule extends ScalaModule {
       }
   }
 
-
-  def mdocSourceDir = T { super.millSourcePath / "docs" }
-
   def scalaLibrary: T[Dep] = T(
     ivy"org.scala-lang:scala-library:${scalaVersion}"
   )
@@ -236,6 +230,26 @@ trait SiteModule extends ScalaModule {
   val separator: Char = java.io.File.pathSeparatorChar
   def toArgument(p: Agg[os.Path]): String = p.iterator.mkString(s"$separator")
 
+  // This is the source directory, of the entire site.
+  def siteSources: T[Seq[PathRef]] = T.sources { mdocSourceDir() }
+
+  def mdocSources: T[Seq[PathRef]] = T.sources {
+    os.walk(mdocSourceDir())
+    .filter(os.isFile)
+    .filter(_.toIO.getName().contains("mdoc.md"))
+    .map(PathRef(_))
+  }
+
+  def mdocSourceDir = T { super.millSourcePath / "docs" }
+
+  def allDocs = T{
+    val mdocd = mdoc()
+    val sourceDocs = mdocSourceDir()
+    os.copy.over(mdocd.path, T.dest)
+    os.copy(sourceDocs, T.dest, mergeFolders = true)
+    T.dest
+  }
+
   def mdoc: T[PathRef] = T {
     val cp = compileClasspath().map(_.path)
     val rp = mDocLibs().map(_.path)
@@ -247,13 +261,12 @@ trait SiteModule extends ScalaModule {
           pr.path.toIO.getAbsolutePath,
           "--out",
           dir,
-          "--classpath",
-          toArgument(cp ++ rp)
         )
       )
       .iterator
       .flatten
-      .toSeq
+      .toSeq ++ Seq("--classpath",toArgument(cp ++ rp))
+
     mill.util.Jvm.runSubprocess(
       mainClass = "mdoc.Main",
       classPath = rp,
@@ -265,4 +278,5 @@ trait SiteModule extends ScalaModule {
     ) // classpath can be long. On windows will barf without passing as Jar
     PathRef(T.dest)
   }
+
 }
