@@ -260,7 +260,14 @@ trait SiteModule extends ScalaModule {
     val mdocd = mdoc()
     val sourceDocs = mdocSourceDir()
     os.copy.over(mdocd.path, T.dest)
-    os.copy(sourceDocs, T.dest, mergeFolders = true)
+    //os.copy(sourceDocs, T.dest, mergeFolders = true)
+    for {
+      aDoc <- os.walk(sourceDocs)
+      rel = (T.dest / aDoc.subRelativeTo(mdocSourceDir()))
+      if !os.exists(rel)
+    } {
+      os.copy(aDoc, rel)
+    }
     T.dest
   }
 
