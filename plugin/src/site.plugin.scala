@@ -41,19 +41,20 @@ trait SiteModule extends ScalaModule {
         .mkString(java.io.File.pathSeparator)
     )
   }
-  override def scalaDocOptions = super.scalaDocOptions() ++ Seq[String]("-snippet-compiler:compile")
+  override def scalaDocOptions =
+    super.scalaDocOptions() ++ Seq[String]("-snippet-compiler:compile")
 
-  def siteGen : T[os.Path] = T{
+  // persistent to help prevent browser reloading going crazy, lets see if that's confusing or not.
+  def siteGen: T[os.Path] = T.persistent {
     val apidir = apiOnlyGen()
     val docdir = docOnlyGen()
-    mdoc()
+    // mdoc()
     os.copy(apidir, T.dest, mergeFolders = true)
     os.copy.over(docdir / "docs", T.dest / "docs")
     T.dest
   }
 
-
-  def docOnlyGen : T[os.Path] = T {
+  def docOnlyGen: T[os.Path] = T {
     compile()
     val javadocDir = T.dest / "javadoc"
     os.makeDir.all(javadocDir)
@@ -90,26 +91,36 @@ trait SiteModule extends ScalaModule {
         scalacPluginClasspath(),
         options ++ compileCpArg() ++ scalaDocOptions()
           ++ Lib
-            .findSourceFiles(Seq(fakeSource().classes), Seq("tasty")).map(_.toString()) // find classes in this artefact _only_!
-
+            .findSourceFiles(Seq(fakeSource().classes), Seq("tasty"))
+            .map(_.toString()) // find classes in this artefact _only_!
 
       ) match {
-          case true => Result.Success(javadocDir)
-          case false => Result.Failure(s"Documentation generatation failed. Usual cause would be no sources files in : ${sources()} or no doc files in ${docSources()} " )
-      }
+      case true => Result.Success(javadocDir)
+      case false =>
+        Result.Failure(
+          s"Documentation generatation failed. Usual cause would be no sources files in : ${sources()} or no doc files in ${docSources()} "
+        )
+    }
   }
 
-  def fakeDoc : T[PathRef] =  T {
-    val emptyDoc =  T.dest / "_docs" / "empty.md"
+  def fakeDoc: T[PathRef] = T {
+    val emptyDoc = T.dest / "_docs" / "empty.md"
     os.makeDir(emptyDoc / os.up)
-    os.write.over(emptyDoc, "# Fake Doc \n \n To trick the API generator into having a link to the docs part of the website".getBytes() )
+    os.write.over(
+      emptyDoc,
+      "# Fake Doc \n \n To trick the API generator into having a link to the docs part of the website"
+        .getBytes()
+    )
     PathRef(T.dest)
   }
 
-  def fakeSource : T[CompilationResult] =  T {
-    val emptyDoc =  T.dest / "src" / "fake.scala"
+  def fakeSource: T[CompilationResult] = T {
+    val emptyDoc = T.dest / "src" / "fake.scala"
     os.makeDir(emptyDoc / os.up)
-    os.write.over(emptyDoc, "package fake \n \n object Fake: \n  def apply() = ???" )
+    os.write.over(
+      emptyDoc,
+      "package fake \n \n object Fake: \n  def apply() = ???"
+    )
     zincWorker()
       .worker()
       .compileMixed(
@@ -127,9 +138,7 @@ trait SiteModule extends ScalaModule {
       )
   }
 
-
-
-  def apiOnlyGen : T[os.Path] = T {
+  def apiOnlyGen: T[os.Path] = T {
     compile()
     val javadocDir = T.dest / "javadoc"
     os.makeDir.all(javadocDir)
@@ -152,12 +161,17 @@ trait SiteModule extends ScalaModule {
         scalaDocClasspath(),
         scalacPluginClasspath(),
         options ++ compileCpArg() ++ scalaDocOptions()
-          ++Lib.findSourceFiles(transitiveDocSources(), Seq("tasty")).map(_.toString()), // transitive api, i.e. module deps.
+          ++ Lib
+            .findSourceFiles(transitiveDocSources(), Seq("tasty"))
+            .map(_.toString()) // transitive api, i.e. module deps.
 
       ) match {
-          case true => Result.Success(javadocDir)
-          case false => Result.Failure(s"Documentation generatation failed. This would normally indicate that the standard mill `docJar` command on one of the underlying projects will fail. Please attempt to fix that problem and try again  " )
-      }
+      case true => Result.Success(javadocDir)
+      case false =>
+        Result.Failure(
+          s"Documentation generatation failed. This would normally indicate that the standard mill `docJar` command on one of the underlying projects will fail. Please attempt to fix that problem and try again  "
+        )
+    }
   }
 
   def scalaLibrary: T[Dep] = T(
@@ -235,14 +249,14 @@ trait SiteModule extends ScalaModule {
 
   def mdocSources: T[Seq[PathRef]] = T.sources {
     os.walk(mdocSourceDir())
-    .filter(os.isFile)
-    .filter(_.toIO.getName().contains("mdoc.md"))
-    .map(PathRef(_))
+      .filter(os.isFile)
+      .filter(_.toIO.getName().contains("mdoc.md"))
+      .map(PathRef(_))
   }
 
   def mdocSourceDir = T { super.millSourcePath / "docs" }
 
-  def allDocs = T{
+  def allDocs = T {
     val mdocd = mdoc()
     val sourceDocs = mdocSourceDir()
     os.copy.over(mdocd.path, T.dest)
@@ -255,17 +269,18 @@ trait SiteModule extends ScalaModule {
     val rp = mDocLibs().map(_.path)
     val dir = T.dest.toIO.getAbsolutePath
     val dirParams = mdocSources()
-      .map(pr =>
+      .map(_.path)
+      .map { pr =>
         Seq(
           "--in",
-          pr.path.toIO.getAbsolutePath,
+          pr.toIO.getAbsolutePath,
           "--out",
-          dir,
+          (T.dest / pr.subRelativeTo(mdocSourceDir())).toIO.getAbsolutePath
         )
-      )
+      }
       .iterator
       .flatten
-      .toSeq ++ Seq("--classpath",toArgument(cp ++ rp))
+      .toSeq ++ Seq("--classpath", toArgument(cp ++ rp))
 
     mill.util.Jvm.runSubprocess(
       mainClass = "mdoc.Main",
