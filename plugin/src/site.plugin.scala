@@ -32,13 +32,115 @@ trait SiteModule extends ScalaModule {
   def transitiveDocSources: T[Seq[PathRef]] =
     T { T.traverse(moduleDeps)(_.docSources)().flatten }
 
-  override def docSources = T {
-    if (transitiveDocs()) {
-      transitiveDocSources() ++ super.docSources()
-    } else {
-      super.docSources()
-    }
+  def compileCpArg: T[Seq[String]] = T {
+    Seq(
+      "-classpath",
+      compileClasspath().iterator
+        .filter(_.path.ext != "pom")
+        .map(_.path)
+        .mkString(java.io.File.pathSeparator)
+    )
   }
+
+  // def transitiveDocResources = ???
+
+  // override def docSources = T {
+  //   if (transitiveDocs()) {
+  //     transitiveDocSources() ++ super.docSources()
+  //   } else {
+  //     super.docSources()
+  //   }
+  // }
+
+  def siteGen : T[os.Path] = T{
+    val apidir = apiOnlyGen()
+    val docdir = docOnlyGen()
+
+    os.copy(apidir, T.dest, mergeFolders = true)
+    os.copy.over(docdir / "docs", T.dest / "docs")
+
+    T.dest
+
+  }
+
+
+  def docOnlyGen : T[os.Path] = T {
+    compile()
+    val javadocDir = T.dest / "javadoc"
+    os.makeDir.all(javadocDir)
+    val combinedStaticDir = T.dest / "static"
+    os.makeDir.all(combinedStaticDir)
+
+    for {
+      ref <- docResources() // shouldn't be much here...
+      docResource = ref.path
+      if os.exists(docResource) && os.isDir(docResource)
+      children = os.walk(docResource)
+      child <- children
+      if os.isFile(child) && !child.last.startsWith(".")
+    } {
+      os.copy.over(
+        child,
+        combinedStaticDir / child.subRelativeTo(docResource),
+        createFolders = true
+      )
+    }
+    val compileCp = compileCpArg
+    val options = Seq(
+      "-d",
+      javadocDir.toNIO.toString,
+      "-siteroot",
+      combinedStaticDir.toNIO.toString
+    )
+    zincWorker()
+      .worker()
+      .docJar(
+        scalaVersion(),
+        scalaOrganization(),
+        scalaDocClasspath(),
+        scalacPluginClasspath(),
+        options ++ compileCpArg() ++ scalaDocOptions()
+          ++ Lib
+            .findSourceFiles(Seq(compile().classes), Seq("tasty"))
+            .map(_.toString())
+
+      ) match {
+          case true => Result.Success(javadocDir)
+          case false => Result.Failure(s"Documentation generatation failed. Usual cause would be no sources files in : ${sources()} or no doc files in ${docSources()} " )
+      }
+  }
+
+
+  def apiOnlyGen : T[os.Path] = T {
+    compile()
+    val javadocDir = T.dest / "javadoc"
+    os.makeDir.all(javadocDir)
+    val combinedStaticDir = T.dest / "static"
+    os.makeDir.all(combinedStaticDir)
+
+    val compileCp = compileCpArg
+    val options = Seq(
+      "-d",
+      javadocDir.toNIO.toString,
+      "-siteroot",
+      combinedStaticDir.toNIO.toString
+    )
+    zincWorker()
+      .worker()
+      .docJar(
+        scalaVersion(),
+        scalaOrganization(),
+        scalaDocClasspath(),
+        scalacPluginClasspath(),
+        options ++ compileCpArg() ++ scalaDocOptions()
+          ++Lib.findSourceFiles(transitiveDocSources(), Seq("tasty")).map(_.toString()),
+
+      ) match {
+          case true => Result.Success(javadocDir)
+          case false => Result.Failure(s"Documentation generatation failed. This would normally indicate that the standard mill `docJar` command on one of the underlying projects will fail. Please attempt to fix that problem and try again  " )
+      }
+  }
+
 
   override def docJar: T[PathRef] = T {
 
@@ -77,7 +179,6 @@ trait SiteModule extends ScalaModule {
     }
     println("javadocdir")
 
-
     val javadocDir = T.dest / "javadoc"
     println(javadocDir)
     os.makeDir.all(javadocDir)
@@ -109,16 +210,23 @@ trait SiteModule extends ScalaModule {
     println("site")
     packageWithZinc(
       Seq(
-        "-d",
-        javadocDir.toNIO.toString,
         "-siteroot",
         combinedStaticDir.toNIO.toString
       ),
       Lib.findSourceFiles(docSources(), Seq("tasty")),
       javadocDir
     )
+    // packageWithZinc(
+    //   Seq(
+    //     "-d",
+    //     javadocDir.toNIO.toString,
+    //     "-siteroot",
+    //     combinedStaticDir.toNIO.toString
+    //   ),
+    //   Lib.findSourceFiles(docSources(), Seq("tasty")),
+    //   javadocDir
+    // )
   }
-
 
   def mdocSourceDir = T { super.millSourcePath / "docs" }
 
@@ -137,8 +245,7 @@ trait SiteModule extends ScalaModule {
 
   def sitePathString: T[String] = T { sitePath().toString() }
 
-  /**
-    * Overwrites any md files which have been processed by mdoc.
+  /** Overwrites any md files which have been processed by mdoc.
     */
 
   override def docResources = T {
@@ -161,12 +268,8 @@ trait SiteModule extends ScalaModule {
 
   def serveLocal() = T.command {
     println("browser-sync start --server --ss " + sitePathString() + " -w")
-    os.proc("browser-sync","start",
-      "--server",
-      "--ss",
-      sitePathString(),
-      "-w"
-    ).call(stdout = os.Inherit)
+    os.proc("browser-sync", "start", "--server", "--ss", sitePathString(), "-w")
+      .call(stdout = os.Inherit)
   }
 
   // def serveLocal() = T.command {
@@ -220,8 +323,8 @@ trait SiteModule extends ScalaModule {
         uses: actions/deploy-pages@main
 """
 
-  val separator : Char = java.io.File.pathSeparatorChar
-  def toArgument(p: Agg[os.Path]) : String = p.iterator.mkString(s"$separator")
+  val separator: Char = java.io.File.pathSeparatorChar
+  def toArgument(p: Agg[os.Path]): String = p.iterator.mkString(s"$separator")
 
   def mdoc: T[PathRef] = T {
     val cp = compileClasspath().map(_.path)
