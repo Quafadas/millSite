@@ -49,17 +49,61 @@ trait SiteModule extends ScalaModule {
     val apidir = apiOnlyGen()
     val docdir = docOnlyGen()
     // mdoc()
-    os.copy(apidir, T.dest, mergeFolders = true)
+    os.copy.over(apidir, T.dest)
     os.copy.over(docdir / "docs", T.dest / "docs")
     T.dest
   }
 
   def docOnlyGen: T[os.Path] = T {
     compile()
+    mdoc()
     val javadocDir = T.dest / "javadoc"
     os.makeDir.all(javadocDir)
-    // val combinedStaticDir = T.dest / "static"
-    // os.makeDir.all(combinedStaticDir)
+    val combinedStaticDir = T.dest / "static"
+    os.makeDir.all(combinedStaticDir)
+
+
+
+    // copy files
+    for {
+      aDoc <- os.walk(mdoc().path)
+      rel = (T.dest / aDoc.subRelativeTo(mdoc().path))
+    } {
+      os.copy.over(aDoc, rel)
+    }
+
+    for {
+      aDoc <- os.walk(mdocSourceDir().path)
+      rel = (T.dest / aDoc.subRelativeTo(mdocSourceDir().path))
+      if !os.exists(rel)
+    } {
+      os.copy(aDoc, rel)
+    }
+
+
+
+    // for {
+    //   aDoc <- os.walk(sourceDocs)
+    //   rel = (T.dest / aDoc.subRelativeTo(mdocSourceDir()))
+    // } {
+    //   os.copy.over(aDoc, rel)
+    // }
+    // os.copy.over(combinedStaticDir, mdoc)
+
+      // def preprocessedViaMdoc = T.source {
+  //   val mdocd = mdoc()
+  //   val sourceDocs = mdocSourceDir()
+  //   os.copy.ovocd.path, T.dest)er(md
+  //   //os.copy(sourceDocs, T.dest, mergeFolders = true)
+  //   for {
+  //     aDoc <- os.walk(sourceDocs)
+  //     rel = (T.dest / aDoc.subRelativeTo(mdocSourceDir()))
+  //     if !os.exists(rel)
+  //   } {
+  //     os.copy(aDoc, rel)
+  //   }
+  //   PathRef(T.dest)
+  // }
 
     // for {
     //   ref <- docResources() // shouldn't be much here...
@@ -80,7 +124,7 @@ trait SiteModule extends ScalaModule {
       "-d",
       javadocDir.toNIO.toString,
       "-siteroot",
-      allDocs().toNIO.toString
+      combinedStaticDir.toNIO.toString
     )
     zincWorker()
       .worker()
@@ -245,31 +289,18 @@ trait SiteModule extends ScalaModule {
   def toArgument(p: Agg[os.Path]): String = p.iterator.mkString(s"$separator")
 
   // This is the source directory, of the entire site.
-  def siteSources: T[Seq[PathRef]] = T.sources { mdocSourceDir() }
+  def siteSources: T[Seq[PathRef]] = T.sources { super.millSourcePath / "docs" }
 
   def mdocSources: T[Seq[PathRef]] = T.sources {
-    os.walk(mdocSourceDir())
+    os.walk(mdocSourceDir().path)
       .filter(os.isFile)
       .filter(_.toIO.getName().contains("mdoc.md"))
       .map(PathRef(_))
   }
 
-  def mdocSourceDir = T { super.millSourcePath / "docs" }
+  def mdocSourceDir = T.source { super.millSourcePath / "docs" }
 
-  def allDocs = T {
-    val mdocd = mdoc()
-    val sourceDocs = mdocSourceDir()
-    os.copy.over(mdocd.path, T.dest)
-    //os.copy(sourceDocs, T.dest, mergeFolders = true)
-    for {
-      aDoc <- os.walk(sourceDocs)
-      rel = (T.dest / aDoc.subRelativeTo(mdocSourceDir()))
-      if !os.exists(rel)
-    } {
-      os.copy(aDoc, rel)
-    }
-    T.dest
-  }
+
 
   def mdoc: T[PathRef] = T {
     val cp = compileClasspath().map(_.path)
@@ -282,7 +313,7 @@ trait SiteModule extends ScalaModule {
           "--in",
           pr.toIO.getAbsolutePath,
           "--out",
-          (T.dest / pr.subRelativeTo(mdocSourceDir())).toIO.getAbsolutePath
+          (T.dest / pr.subRelativeTo(mdocSourceDir().path)).toIO.getAbsolutePath
         )
       }
       .iterator
