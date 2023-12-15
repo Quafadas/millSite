@@ -62,9 +62,7 @@ trait SiteModule extends ScalaModule {
     val combinedStaticDir = T.dest / "static"
     os.makeDir.all(combinedStaticDir)
 
-
-
-    // copy files
+    //copy mdoccd files in
     for {
       aDoc <- os.walk(mdoc().path)
       rel = (combinedStaticDir / aDoc.subRelativeTo(mdoc().path))
@@ -72,6 +70,7 @@ trait SiteModule extends ScalaModule {
       os.copy.over(aDoc, rel)
     }
 
+    //copy all other doc files
     for {
       aDoc <- mdocSources().map(_.path)
       rel = (combinedStaticDir / aDoc.subRelativeTo(mdocDir))
@@ -80,45 +79,6 @@ trait SiteModule extends ScalaModule {
       os.copy(aDoc, rel)
     }
 
-
-
-    // for {
-    //   aDoc <- os.walk(sourceDocs)
-    //   rel = (T.dest / aDoc.subRelativeTo(mdocSourceDir()))
-    // } {
-    //   os.copy.over(aDoc, rel)
-    // }
-    // os.copy.over(combinedStaticDir, mdoc)
-
-      // def preprocessedViaMdoc = T.source {
-  //   val mdocd = mdoc()
-  //   val sourceDocs = mdocSourceDir()
-  //   os.copy.ovocd.path, T.dest)er(md
-  //   //os.copy(sourceDocs, T.dest, mergeFolders = true)
-  //   for {
-  //     aDoc <- os.walk(sourceDocs)
-  //     rel = (T.dest / aDoc.subRelativeTo(mdocSourceDir()))
-  //     if !os.exists(rel)
-  //   } {
-  //     os.copy(aDoc, rel)
-  //   }
-  //   PathRef(T.dest)
-  // }
-
-    // for {
-    //   ref <- docResources() // shouldn't be much here...
-    //   docResource = ref.path
-    //   if os.exists(docResource) && os.isDir(docResource)
-    //   children = os.walk(docResource)
-    //   child <- children
-    //   if os.isFile(child) && !child.last.startsWith(".")
-    // } {
-    //   os.copy.over(
-    //     child,
-    //     combinedStaticDir / child.subRelativeTo(docResource),
-    //     createFolders = true
-    //   )
-    // }
     val compileCp = compileCpArg
     val options = Seq(
       "-d",
@@ -222,7 +182,7 @@ trait SiteModule extends ScalaModule {
     ivy"org.scala-lang:scala-library:${scalaVersion}"
   )
 
-  def sitePath: T[os.Path] = T { docJar().path / os.up / "javadoc" }
+  def sitePath: T[os.Path] = T { siteGen() / "javadoc" }
 
   def sitePathString: T[String] = T { sitePath().toString() }
 
@@ -292,7 +252,7 @@ trait SiteModule extends ScalaModule {
   def siteSources: T[Seq[PathRef]] = T.sources { super.millSourcePath / "docs" }
 
   def mdocSources: T[Seq[PathRef]] = T.sources {
-    os.walk(mdocSourceDir().path)
+    os.walk(mdocDir)
       .filter(os.isFile)
       .filter(_.toIO.getName().contains("mdoc.md"))
       .map(PathRef(_))
