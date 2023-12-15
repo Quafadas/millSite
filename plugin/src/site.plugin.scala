@@ -41,26 +41,15 @@ trait SiteModule extends ScalaModule {
         .mkString(java.io.File.pathSeparator)
     )
   }
-
-  // def transitiveDocResources = ???
-
-  // override def docSources = T {
-  //   if (transitiveDocs()) {
-  //     transitiveDocSources() ++ super.docSources()
-  //   } else {
-  //     super.docSources()
-  //   }
-  // }
+  override def scalaDocOptions = super.scalaDocOptions() ++ Seq[String]("-snippet-compiler:compile")
 
   def siteGen : T[os.Path] = T{
     val apidir = apiOnlyGen()
     val docdir = docOnlyGen()
-
+    mdoc()
     os.copy(apidir, T.dest, mergeFolders = true)
     os.copy.over(docdir / "docs", T.dest / "docs")
-
     T.dest
-
   }
 
 
@@ -101,7 +90,7 @@ trait SiteModule extends ScalaModule {
         scalacPluginClasspath(),
         options ++ compileCpArg() ++ scalaDocOptions()
           ++ Lib
-            .findSourceFiles(Seq(compile().classes), Seq("tasty"))
+            .findSourceFiles(Seq(compile().classes), Seq("tasty")) // find classes in this artefact _only_!
             .map(_.toString())
 
       ) match {
@@ -133,7 +122,7 @@ trait SiteModule extends ScalaModule {
         scalaDocClasspath(),
         scalacPluginClasspath(),
         options ++ compileCpArg() ++ scalaDocOptions()
-          ++Lib.findSourceFiles(transitiveDocSources(), Seq("tasty")).map(_.toString()),
+          ++Lib.findSourceFiles(transitiveDocSources(), Seq("tasty")).map(_.toString()), // transitive api, i.e. module deps.
 
       ) match {
           case true => Result.Success(javadocDir)
@@ -283,7 +272,7 @@ trait SiteModule extends ScalaModule {
   //   ).call(stdout = os.Inherit)
   // }
 
-  def moduleName: T[String] = millSourcePath.segments.toList.last.toString()
+  // def moduleName: T[String] = millSourcePath.segments.toList.last.toString()
 
   def guessGithubAction: T[String] =
     s""""
@@ -298,7 +287,7 @@ trait SiteModule extends ScalaModule {
         with:
           java-version: 17
       - uses: actions/checkout@v3
-      - run: ./millw ${moduleName()}.docJar
+      - run: ./millw ${artifactName()}.docJar
       - uses: actions/upload-artifact@master
         with:
           name: page
