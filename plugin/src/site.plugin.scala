@@ -67,14 +67,14 @@ trait SiteModule extends ScalaModule {
     // copy files
     for {
       aDoc <- os.walk(mdoc().path)
-      rel = (T.dest / aDoc.subRelativeTo(mdoc().path))
+      rel = (combinedStaticDir / aDoc.subRelativeTo(mdoc().path))
     } {
       os.copy.over(aDoc, rel)
     }
 
     for {
       aDoc <- os.walk(mdocSourceDir().path)
-      rel = (T.dest / aDoc.subRelativeTo(mdocSourceDir().path))
+      rel = (combinedStaticDir / aDoc.subRelativeTo(mdocSourceDir().path))
       if !os.exists(rel)
     } {
       os.copy(aDoc, rel)
