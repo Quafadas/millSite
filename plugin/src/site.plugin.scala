@@ -4,6 +4,7 @@ import mill._
 import mill.scalalib._
 import mill.api.Result
 import mill.util.Jvm.createJar
+import mill.api.PathRef
 
 trait SiteModule extends ScalaModule {
 
@@ -91,13 +92,20 @@ trait SiteModule extends ScalaModule {
         scalacPluginClasspath(),
         options ++ compileCpArg() ++ scalaDocOptions()
           ++ Lib
-            .findSourceFiles(Seq(compile().classes), Seq("tasty")) // find classes in this artefact _only_!
-            .map(_.toString())
+            .findSourceFiles(Seq(compile().classes), Seq("tasty")).map(_.toString()) // find classes in this artefact _only_!
+
 
       ) match {
           case true => Result.Success(javadocDir)
           case false => Result.Failure(s"Documentation generatation failed. Usual cause would be no sources files in : ${sources()} or no doc files in ${docSources()} " )
       }
+  }
+
+  def fakeDoc : T[PathRef] =  T {
+    val emptyDoc =  T.dest / "_docs" / "empty.md"
+    os.makeDir(emptyDoc / os.up)
+    os.write.over(emptyDoc, "# Fake Doc \n \n To trick the API generator into having a link to the docs part of the website".getBytes() )
+    PathRef(T.dest)
   }
 
 
@@ -113,9 +121,9 @@ trait SiteModule extends ScalaModule {
       "-d",
       javadocDir.toNIO.toString,
       "-siteroot",
-      combinedStaticDir.toNIO.toString
+      fakeDoc().path.toNIO.toString
     )
-    os.write.over(combinedStaticDir / "empty.md", "# Fake Doc".getBytes() ) // We need to trick the API, into thinking there are docs present
+
     zincWorker()
       .worker()
       .docJar(
