@@ -115,6 +115,7 @@ trait SiteModule extends ScalaModule {
       "-siteroot",
       combinedStaticDir.toNIO.toString
     )
+    os.write.over(combinedStaticDir / "empty.md", "# Fake Doc".getBytes() ) // We need to trick the API, into thinking there are docs present
     zincWorker()
       .worker()
       .docJar(
