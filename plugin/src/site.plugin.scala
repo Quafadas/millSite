@@ -54,8 +54,8 @@ trait SiteModule extends ScalaModule {
   }
 
   def docOnlyGen: T[os.Path] = T {
-    compile()
-    mdoc()
+    val md = mdoc().path
+    val origDocs = mdocSourceDir().path
     val javadocDir = T.dest / "javadoc"
     os.makeDir.all(javadocDir)
     val combinedStaticDir = T.dest / "static"
@@ -63,15 +63,15 @@ trait SiteModule extends ScalaModule {
 
     //copy mdoccd files in
     for {
-      aDoc <- os.walk(mdoc().path)
-      rel = (combinedStaticDir / aDoc.subRelativeTo(mdoc().path))
+      aDoc <- os.walk(md)
+      rel = (combinedStaticDir / aDoc.subRelativeTo(md))
     } {
       os.copy.over(aDoc, rel)
     }
 
     //copy all other doc files
     for {
-      aDoc <- os.walk(mdocSourceDir().path)
+      aDoc <- os.walk(origDocs)
       rel = (combinedStaticDir / aDoc.subRelativeTo(mdocDir));
       if !os.exists(rel)
     } {
@@ -264,6 +264,7 @@ trait SiteModule extends ScalaModule {
 
 
   def mdoc: T[PathRef] = T {
+    compile()
     val cp = compileClasspath().map(_.path)
     val rp = mDocLibs().map(_.path)
     val dir = T.dest.toIO.getAbsolutePath
