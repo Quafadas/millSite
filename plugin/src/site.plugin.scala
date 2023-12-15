@@ -71,7 +71,7 @@ trait SiteModule extends ScalaModule {
 
     //copy all other doc files
     for {
-      aDoc <- os.walk(mdocDir)
+      aDoc <- os.walk(mdocSourceDir().path)
       rel = (combinedStaticDir / aDoc.subRelativeTo(mdocDir));
       if !os.exists(rel)
     } {
