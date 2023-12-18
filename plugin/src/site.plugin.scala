@@ -52,6 +52,7 @@ trait SiteModule extends ScalaModule {
     // mdoc()
     os.copy.over(apidir, T.dest)
     os.copy.over(docdir / "docs", T.dest / "docs")
+    os.copy(assetDir, T.dest, mergeFolders=true)
     T.dest
   }
 
@@ -63,12 +64,20 @@ trait SiteModule extends ScalaModule {
     val combinedStaticDir = T.dest / "static"
     os.makeDir.all(combinedStaticDir)
 
+    def fixAssets(docFile: os.Path) = {
+      if (docFile.ext == "md"){
+        val fixyFixy = os.read(docFile).replace("../_assets/","")
+        os.write.over(docFile, fixyFixy.getBytes())
+      }
+    }
+
     //copy mdoccd files in
     for {
       aDoc <- os.walk(md)
       rel = (combinedStaticDir / aDoc.subRelativeTo(md))
     } {
       os.copy.over(aDoc, rel)
+      fixAssets(rel) // pure filth, report as bug
     }
 
     //copy all other doc files
@@ -78,7 +87,9 @@ trait SiteModule extends ScalaModule {
       if !os.exists(rel)
     } {
       os.copy(aDoc, rel)
+      fixAssets(rel) // pure filth, report as bug
     }
+    os.copy(assetDir, javadocDir, mergeFolders=true)
 
     val compileCp = compileCpArg
     val options = Seq(
@@ -263,6 +274,7 @@ trait SiteModule extends ScalaModule {
 
   def mdocDir = super.millSourcePath / "docs"
 
+  def assetDir = mdocDir / "_assets"
 
 
   def mdoc: T[PathRef] = T {
