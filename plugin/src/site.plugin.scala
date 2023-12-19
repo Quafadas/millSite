@@ -114,7 +114,7 @@ trait SiteModule extends ScalaModule {
       case true => Result.Success(javadocDir)
       case false =>
         Result.Failure(
-          s"Documentation generatation failed. Usual cause would be no sources files in : ${sources()} or no doc files in ${docSources()} "
+          s"""Documentation generatation failed. Cause could include be no sources files in : ${sources()} or no doc files in ${docSources()}, or an error message printed above... """
         )
     }
   }
