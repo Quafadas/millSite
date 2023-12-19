@@ -60,15 +60,23 @@ jobs:
       - run: ./millw site.docJar
       - uses: actions/upload-artifact@v4
         with:
-          path: out/site/docJar.dest/javadoc
+          name: mill-site
+          path: out/site/docJar.dest/javadoc/
+          if-no-files-found: error
 
   deploySite:
+    needs: buildSite
+    permissions:
+      id-token: write
+      pages: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
-    needs: buildSite
+
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v3
+        uses: actions/deploy-pages@v4
+        with:
+          artifact_name: mill-site
