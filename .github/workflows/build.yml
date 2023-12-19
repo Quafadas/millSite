@@ -60,24 +60,15 @@ jobs:
       - run: ./millw site.docJar
       - uses: actions/upload-artifact@v4
         with:
-          name: page
           path: out/site/docJar.dest/javadoc
 
   deploySite:
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    needs: buildSite
     environment:
       name: github-pages
-      url: ${{steps.deployment.outputs.page_url}}
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: buildSite
     steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: page
-          path: .
-      - uses: actions/configure-pages@v4
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: .
-      - id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v3
