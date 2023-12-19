@@ -5,6 +5,12 @@ permissions:
   pages: write
   contents: read
 
+# Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
+# However, do NOT cancel in-progress runs as we want to allow these production deployments to complete.
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
 jobs:
 
   build:
@@ -57,7 +63,7 @@ jobs:
       - run: ./millw site.docJar
       - name: Setup Pages
         uses: actions/configure-pages@v4
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v2
         with:
           path: out/site/docJar.dest/javadoc/
       - name: Deploy to GitHub Pages
