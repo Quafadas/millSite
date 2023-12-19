@@ -23,9 +23,11 @@ Opinion : having your docs and the API docs unified makes life in userland bette
 
 There is a simple version of this plugin, built right into mill itself. Just run `docJar`. However, it's slow. Like... suuuuuuuuper slow.
 
+And, no mdoc. And someimes I really like seeing the output next to the code.
+
 This plugin attempts something a bit odd, and splits the pipline into "API" (glacial) and "docs" (fast-ish. -ish.). The API is generated once, and cached (assuming it isn't changing on you). The docs are generated on every run and the two things combined in `siteGen`.
 
-In combination with mills caching, the turnaround times are... okay. In combination with VSCodes markdown preview, and https://browsersync.io we can get a (sluggish, but clickless - yeyz!) live preview.
+In combination with mills caching, the turnaround times are... okay. In combination with VSCodes markdown preview, and something like https://browsersync.io we can get a (sluggish, but clickless - yeyz!) live preview.
 
 Is this complexity worth it ?
 
