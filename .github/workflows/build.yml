@@ -63,9 +63,30 @@ jobs:
       - run: ./millw site.docJar
       - name: Setup Pages
         uses: actions/configure-pages@v4
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v3
         with:
-          path: out/site/docJar.dest/javadoc/
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v3
+          name: page
+          path: build
+          if-no-files-found: error
+
+  deploy:
+    needs: site
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${\{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/download-artifact@v3
+      with:
+        name: page
+        path: .
+    - uses: actions/configure-pages@v4
+    - uses: actions/upload-pages-artifact@v1
+      with:
+        path: .
+    - name: Deploy to GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@v3
