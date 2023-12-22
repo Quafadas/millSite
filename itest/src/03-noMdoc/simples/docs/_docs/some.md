@@ -1,7 +1,7 @@
 # Some doc
 
 
-```scala mdoc
+```scala
 import foo.Foo
 
 val x = 1 + 1

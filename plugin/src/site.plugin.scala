@@ -11,7 +11,26 @@ trait SiteModule extends ScalaModule {
 
   def scalaVersion = T("3.3.1")
 
-  def transitiveDocs: T[Boolean] = T { true }
+  /**
+    * If we're given module dependancies, then assume we probably don't want to include
+    * source files in the doc site, in the published API docs.
+    */
+  def includeApiDocsFromThisModule: T[Boolean] = moduleDeps.length == 0
+
+  def walkTransitiveDeps: Set[JavaModule] = {
+    def loop(
+        acc: Set[JavaModule],
+        current: JavaModule
+    ): Set[JavaModule] = {
+      val newAcc = acc + current
+      val newDeps = current.moduleDeps
+        .filterNot(newAcc.contains(_))
+        .toSet
+      if (newDeps.isEmpty) newAcc
+      else newDeps.foldLeft(newAcc)((acc, dep) => loop(acc, dep))
+    }
+    loop(Set(), this)
+  }
 
   def scalaMdocVersion: T[String] = T("2.5.1")
 
@@ -29,8 +48,23 @@ trait SiteModule extends ScalaModule {
 
   def mDocLibs = T { resolveDeps(mdocDepBound) }
 
-  def transitiveDocSources: T[Seq[PathRef]] =
-    T { T.traverse(moduleDeps)(_.docSources)().flatten }
+  def transitiveDocSources: T[Seq[PathRef]] = T{
+    // val transitiveDeps = moduleDeps.flatMap(_.moduleDeps).toSet.toSeq
+    val transitiveAPiSources = T.traverse(walkTransitiveDeps.toSeq)(_.docSources)().flatten
+    if (includeApiDocsFromThisModule()) {
+      transitiveAPiSources ++ docSources()
+    } else transitiveAPiSources
+  }
+
+
+  def mdocSourceDir = T.source { mdocDir }
+
+  /**
+  * We only consider "docs" directory,  in this module
+  */
+  def mdocDir = super.millSourcePath / "docs"
+
+  def assetDir = mdocDir / "_assets"
 
   def compileCpArg: T[Seq[String]] = T {
     Seq(
@@ -41,6 +75,7 @@ trait SiteModule extends ScalaModule {
         .mkString(java.io.File.pathSeparator)
     )
   }
+
   override def scalaDocOptions =
     super.scalaDocOptions() ++ Seq[String]("-snippet-compiler:compile")
 
@@ -52,7 +87,18 @@ trait SiteModule extends ScalaModule {
     // mdoc()
     os.copy.over(apidir, T.dest)
     os.copy.over(docdir / "docs", T.dest / "docs")
-    os.copy(assetDir, T.dest, mergeFolders=true)
+    val originalIndex = os.read(T.dest / "index.html")
+
+    // This should make the site, default to the docs page as opposed to the API page
+    // os.write.over(
+    //   T.dest / "index.html",
+    //   originalIndex
+    //   .replace(" selected","")
+    //   .replace("""class="switcher h100 " href="docs/index.html""", """class="switcher h100 selected" href="docs/index.html""")
+    // )
+    if (os.exists(assetDir)) {
+      os.copy(assetDir, T.dest, mergeFolders=true)
+    }
     T.dest
   }
 
@@ -89,7 +135,10 @@ trait SiteModule extends ScalaModule {
       os.copy(aDoc, rel)
       fixAssets(rel) // pure filth, report as bug
     }
-    os.copy(assetDir, javadocDir, mergeFolders=true)
+
+    if (os.exists(assetDir)){
+      os.copy(assetDir, javadocDir, mergeFolders=true)
+    }
 
     val compileCp = compileCpArg
     val options = Seq(
@@ -98,6 +147,17 @@ trait SiteModule extends ScalaModule {
       "-siteroot",
       combinedStaticDir.toNIO.toString
     )
+
+    val localCp = if(includeApiDocsFromThisModule()) {
+        Lib
+          .findSourceFiles(super.docSources(), Seq("tasty"))
+          .map(_.toString()) // This will be dog slow
+    } else {
+        Lib
+          .findSourceFiles(Seq(fakeSource().classes), Seq("tasty"))
+          .map(_.toString()) // fake api to speed up doc generation
+    }
+
     zincWorker()
       .worker()
       .docJar(
@@ -106,9 +166,7 @@ trait SiteModule extends ScalaModule {
         scalaDocClasspath(),
         scalacPluginClasspath(),
         options ++ compileCpArg() ++ scalaDocOptions()
-          ++ Lib
-            .findSourceFiles(Seq(fakeSource().classes), Seq("tasty"))
-            .map(_.toString()) // find classes in this artefact _only_!
+          ++ localCp
 
       ) match {
       case true => Result.Success(javadocDir)
@@ -270,41 +328,36 @@ trait SiteModule extends ScalaModule {
       .map(PathRef(_))
   }
 
-  def mdocSourceDir = T.source { mdocDir }
-
-  def mdocDir = super.millSourcePath / "docs"
-
-  def assetDir = mdocDir / "_assets"
-
-
   def mdoc: T[PathRef] = T {
     compile()
-    val cp = compileClasspath().map(_.path)
+    val cp = runClasspath().map(_.path)
     val rp = mDocLibs().map(_.path)
     val dir = T.dest.toIO.getAbsolutePath
-    val dirParams = mdocSources()
-      .map(_.path)
-      .map { pr =>
-        Seq(
-          "--in",
-          pr.toIO.getAbsolutePath,
-          "--out",
-          (T.dest / pr.subRelativeTo(mdocDir)).toIO.getAbsolutePath
-        )
-      }
-      .iterator
-      .flatten
-      .toSeq ++ Seq("--classpath", toArgument(cp ++ rp))
+    if (!mdocSources().isEmpty) {
+      val dirParams = mdocSources()
+        .map(_.path)
+        .map { pr =>
+          Seq(
+            "--in",
+            pr.toIO.getAbsolutePath,
+            "--out",
+            (T.dest / pr.subRelativeTo(mdocDir)).toIO.getAbsolutePath
+          )
+        }
+        .iterator
+        .flatten
+        .toSeq ++ Seq("--classpath", toArgument(cp ++ rp))
 
-    mill.util.Jvm.runSubprocess(
-      mainClass = "mdoc.Main",
-      classPath = rp,
-      jvmArgs = forkArgs(),
-      envArgs = forkEnv(),
-      dirParams,
-      workingDir = forkWorkingDir(),
-      useCpPassingJar = true
-    ) // classpath can be long. On windows will barf without passing as Jar
+      mill.util.Jvm.runSubprocess(
+        mainClass = "mdoc.Main",
+        classPath = rp,
+        jvmArgs = forkArgs(),
+        envArgs = forkEnv(),
+        dirParams,
+        workingDir = forkWorkingDir(),
+        useCpPassingJar = true
+      ) // classpath can be long. On windows will barf without passing as Jar
+    }
     PathRef(T.dest)
   }
 

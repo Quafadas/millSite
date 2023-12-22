@@ -18,7 +18,7 @@ object plugin extends ScalaModule with PublishModule {
 
   def millPlatform: T[String] = "0.11"
 
-  def millVersion: T[String] = "0.11.0"
+  def millVersion: T[String] = "0.11.5"
 
   def scalaVersion: T[String] = "2.13.12"
 
@@ -52,6 +52,7 @@ object plugin extends ScalaModule with PublishModule {
 
 }
 
+// borked
 object itest extends MillIntegrationTestModule {
 
   def millTestVersion = "0.11.5"

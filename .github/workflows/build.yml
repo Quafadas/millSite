@@ -26,6 +26,7 @@ jobs:
           distribution: 'temurin'
       - uses: actions/checkout@v3
       - run: ./millw __.compile
+      - run: ./millw itest.test
       - run: ./millw __.publishLocal
 
   publish:
@@ -53,6 +54,7 @@ jobs:
 
   site:
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/setup-java@v4
