@@ -1,13 +1,13 @@
 # Goal
 
-Aims to be a batteries included, one stop shop plugin to document a scala3 build and published with mill.
+Aims to be a batteries included, one stop shop plugin to document a scala3 library published and built with mill.
 
 ## Features
 
 - Recursive module search to generate API doc for all modules
 - Uses Scaladoc (snippet compiler etc) for static site generation - combining API doc _and_ your docs together
 - Uses mill caching to accelerate the editing loop
-- Auto fixes assets paths so you can live edit, enjoying IDE previews and correctly deploy to github pages
+- Auto fixes assets paths so you can both enjoying IDE previews _and_ seamlessly deploy to github pages
 - Plays nicely with modern git actions for ease of deployment to github pages
 
 ## Examples
@@ -22,7 +22,7 @@ https://github.com/Quafadas/mill_scala3_mdoc_site/blob/2f67c914124148cd34775a30b
 
 ### `def siteGen: T[PathRef]`
 
-Generate the site. This is the main entry point for the plugin.
+Generate the site. This is the main entry point for the plugin. Given this module in a mill.sc file, where `foo` is a module we wish to document the API for.
 
 ```scala
 import millSite.SiteModule
@@ -35,16 +35,14 @@ object site extends SiteModule {
   def moduleDeps = Seq(foo)
 }
 ```
-In a terminal,
+In a terminal, `mill show site.siteGen` will generate a static site, including API for `foo`.
 
-`mill show site.siteGen`
+Serve the site at the path of this directory in a static webserver, to view your shiny new doc site. For example, using javas SimpleHttpServer (java 18+)
+`$JAVA_HOME/bin/jwebserver -d {{output of mill show site.siteGen}} `
 
-Serve the site at the path of this directory in a static webserver, to view your shiny new doc site.
-
-`mill -w site.siteGen`, will regenerate when you save a change to docs**...
+Pro tip - use the -w flag, `mill -w site.siteGen` to regenerate when you save a change to docs**...
 
 ** Generating APIs is slow for larger projects. This module splits the API generation into a separate task, so you can edit and view docs without waiting for the API to regenerate.
-
 
 #### Live reload
 Live reload to view change without browser refresh is a function of the webserver you use, to host the site. In VSCode, the [Live Server Extension](https://marketplace.visualstudio.com/items?itemName=ritwickdey.LiveServer) may be worth investigating.
