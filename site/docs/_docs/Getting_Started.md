@@ -38,7 +38,7 @@ object site extends SiteModule {
 In a terminal, `mill show site.siteGen` will generate a static site, including API for `foo`.
 
 Serve the site at the path of this directory in a static webserver, to view your shiny new doc site. For example, using javas SimpleHttpServer (java 18+)
-`$JAVA_HOME/bin/jwebserver -d {{output of mill show site.siteGen}} `
+```$JAVA_HOME/bin/jwebserver -d [[output of mill show site.siteGen]]```
 
 Pro tip - use the -w flag, `mill -w site.siteGen` to regenerate when you save a change to docs**...
 
