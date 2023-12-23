@@ -1,4 +1,3 @@
-
 // build.sc
 import $file.plugins
 
@@ -7,14 +6,13 @@ import $file.plugins
 import mill._
 import mill.scalalib._
 
-import mill.site.SiteModule
+import millSite.SiteModule
 
-
- object simples extends SiteModule {
-
+object simples extends SiteModule {
+  override def scalaVersion = T("3.3.1")
 }
 
-def verify()  = T.command {
+def verify() = T.command {
   val site = simples.siteGen()
-  assert(os.exists(site / "docs" / "some.html" ))
+  assert(os.exists(site / "docs" / "some.html"))
 }

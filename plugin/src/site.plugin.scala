@@ -1,4 +1,4 @@
-package mill.site
+package millSite
 
 import mill._
 import mill.scalalib._
@@ -9,7 +9,7 @@ import mill.scalalib.api.CompilationResult
 
 trait SiteModule extends ScalaModule {
 
-  def scalaVersion = T("3.3.1")
+  // def scalaVersion = T("3.3.1")
 
   /**
     * If we're given module dependancies, then assume we probably don't want to include
@@ -76,6 +76,15 @@ trait SiteModule extends ScalaModule {
     )
   }
 
+  /**
+    * See https://docs.scala-lang.org/scala3/guides/scaladoc/settings.html
+    *
+    * By default we enable the snippet compiler
+    *
+    * https://docs.scala-lang.org/scala3/guides/scaladoc/snippet-compiler.html
+    *
+    * @return
+    */
   override def scalaDocOptions =
     super.scalaDocOptions() ++ Seq[String]("-snippet-compiler:compile")
 
@@ -123,7 +132,7 @@ trait SiteModule extends ScalaModule {
       rel = (combinedStaticDir / aDoc.subRelativeTo(md))
     } {
       os.copy.over(aDoc, rel)
-      fixAssets(rel) // pure filth, report as bug
+      fixAssets(rel) // pure filth, report as bug?
     }
 
     //copy all other doc files
@@ -133,7 +142,7 @@ trait SiteModule extends ScalaModule {
       if !os.exists(rel)
     } {
       os.copy(aDoc, rel)
-      fixAssets(rel) // pure filth, report as bug
+      fixAssets(rel) // pure filth, report as bug?
     }
 
     if (os.exists(assetDir)){
@@ -224,7 +233,8 @@ trait SiteModule extends ScalaModule {
       "-d",
       javadocDir.toNIO.toString,
       "-siteroot",
-      fakeDoc().path.toNIO.toString
+      fakeDoc().path.toNIO.toString,
+      "-Ygenerate-inkuire"
     )
 
     zincWorker()
@@ -266,57 +276,63 @@ trait SiteModule extends ScalaModule {
     Seq(PathRef(T.dest))
   }
 
-  def npmInstallServeDeps() = T.command {
-    println("npm install -g browser-sync")
-    os.proc("npm", "install", "-g", "browser-sync").call(stdout = os.Inherit)
-  }
+  // def npmInstallServeDeps() = T.command {
+  //   println("npm install -g browser-sync")
+  //   os.proc("npm", "install", "-g", "browser-sync").call(stdout = os.Inherit)
+  // }
 
-  def serveLocal() = T.command {
-    println("browser-sync start --server --ss " + sitePathString() + " -w")
-    os.proc("browser-sync", "start", "--server", "--ss", sitePathString(), "-w")
-      .call(stdout = os.Inherit)
-  }
+  // def serveLocal() = T.command {
+  //   println("browser-sync start --server --ss " + sitePathString() + " -w")
+  //   os.proc("browser-sync", "start", "--server", "--ss", sitePathString(), "-w")
+  //     .call(stdout = os.Inherit)
+  // }
 
   def guessGithubAction: T[String] =
     s""""
   buildSite:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
-
-      - uses: actions/setup-java@v1
+      - uses: actions/setup-java@v4
         with:
           java-version: 17
+          distribution: 'temurin'
       - uses: actions/checkout@v3
-      - run: ./millw ${artifactName()}.docJar
-      - uses: actions/upload-artifact@master
+      - run: ./millw site.siteGen
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+      - uses: actions/upload-artifact@v3
         with:
           name: page
           path: ${sitePathString()}
+          if-no-files-found: error
 
-  deploySite:
-    runs-on: ubuntu-latest
-    needs: buildSite
+  deploy:
+    needs: site
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
-      url: $${{steps.deployment.outputs.page_url}}
+      url: $${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@master
-        with:
-          name: page
-          path: .
-      - uses: actions/configure-pages@v1
-      - uses: actions/upload-pages-artifact@v1
-        with:
-          path: .
-      - id: deployment
-        uses: actions/deploy-pages@main
+    - uses: actions/download-artifact@v3
+      with:
+        name: page
+        path: .
+    - uses: actions/configure-pages@v4
+    - uses: actions/upload-pages-artifact@v2
+      with:
+        path: .
+    - name: Deploy to GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@v3
 """
 
-  val separator: Char = java.io.File.pathSeparatorChar
-  def toArgument(p: Agg[os.Path]): String = p.iterator.mkString(s"$separator")
+  private val separator: Char = java.io.File.pathSeparatorChar
+  private def toArgument(p: Agg[os.Path]): String = p.iterator.mkString(s"$separator")
 
   // This is the source directory, of the entire site.
   def siteSources: T[Seq[PathRef]] = T.sources { super.millSourcePath / "docs" }
