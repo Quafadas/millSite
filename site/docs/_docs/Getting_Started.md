@@ -2,6 +2,25 @@
 
 Aims to be a batteries included, one stop shop plugin to document a scala3 library published and built with mill.
 
+In `build.sc`
+
+```
+import $ivy.`io.github.quafadas::mill_scala3_site_mdoc::0.0.7`
+
+import millSite.SiteModule
+
+object site extends SiteModule {
+  override def scalaVersion = T("3.3.1")
+  def moduleDeps = Seq(foo)
+}
+
+```
+
+```console
+$ mill site.siteGen
+```
+
+
 ## Features
 
 - Recursive module search to generate API doc for all modules
@@ -9,6 +28,7 @@ Aims to be a batteries included, one stop shop plugin to document a scala3 libra
 - Uses mill caching to accelerate the editing loop
 - Auto fixes assets paths so you can both enjoying IDE previews _and_ seamlessly deploy to github pages
 - Plays nicely with modern git actions for ease of deployment to github pages
+- Undertakes some wild file copy gymnastics, to ensure "live reload" through something like the live reload extension (VSCode) or browsersync (browser) works as expected
 
 ## Examples
 
@@ -62,7 +82,23 @@ By default, enable the snippet compiler.
 Scaladoc options. See
 [scaladoc manual](https://docs.scala-lang.org/scala3/guides/scaladoc/index.html)
 
+If your have mill VCS plugin enabled, something like;
+
+
+
+```
+  def latestVersion = VcsVersion.vcsState().lastTag.getOrElse("0.0.0").replace("v", "")
+
+  override def scalaDocOptions = super.scalaDocOptions() ++  Seq(
+    "-scastie-configuration", """libraryDependencies += "io.github.quafadas" %% "scautable" % "latestVersion()"""",
+    "-project", "scautable",
+    "-project-version", latestVersion,
+  )
+```
+
 ### `def guessGithubAction: T[String]`
 
-Proposes a github action workflow, to enable your site in CI. It will likely need tweaking, but should provide a good starting point. You'll need to enable pages on the repository, and set the pages to be updated via actions.
+Proposes a github action workflow, to enable your site in CI. It will likely need tweaking, but should provide a good starting point. You'll need to enable pages on the repository, and set the pages to be updated via GHA.
+
+![GHA](../images/GHA_setup.png)
 

@@ -61,13 +61,21 @@ object itest extends MillIntegrationTestModule {
 
 }
 
+
+
 object site extends ScalaModule {
+  def latestVersion = VcsVersion.vcsState().lastTag.getOrElse("0.0.0").replace("v", "")
 
   def scalaVersion: T[String] = "3.3.1"
 
   def sitePath: T[os.Path] = T { docJar().path / os.up / "javadoc" }
 
   def sitePathString: T[String] = T { sitePath().toString() }
+
+  override def scalaDocOptions = super.scalaDocOptions() ++  Seq(
+    "-project-version", latestVersion,
+
+  )
 
   def serveLocal() = T.command {
     os.proc(

@@ -39,10 +39,11 @@ def verify() = T.command {
     .find(_.contains("01-simple/out/simples/compile.dest/classes"))
 
   val api = simples.apiOnlyGen()
-  assert(os.exists(api / "foo.html"))
+  assert(os.exists(api.path / "foo.html"))
 
   val docOnly = simples.docOnlyGen()
-  assert(os.exists(docOnly / "foo.html"))
+  assert(docOnly.docs.nonEmpty)
+  assert(docOnly.docs.size == 2)
 
   val site = simples.siteGen()
   assert(os.exists(site / "foo.html"))

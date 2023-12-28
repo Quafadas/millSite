@@ -11,9 +11,8 @@ trait SiteModule extends ScalaModule {
 
   // def scalaVersion = T("3.3.1")
 
-  /**
-    * If we're given module dependancies, then assume we probably don't want to include
-    * source files in the doc site, in the published API docs.
+  /** If we're given module dependancies, then assume we probably don't want to
+    * include source files in the doc site, in the published API docs.
     */
   def includeApiDocsFromThisModule: T[Boolean] = moduleDeps.length == 0
 
@@ -48,23 +47,22 @@ trait SiteModule extends ScalaModule {
 
   def mDocLibs = T { resolveDeps(mdocDepBound) }
 
-  def transitiveDocSources: T[Seq[PathRef]] = T{
+  def transitiveDocSources: T[Seq[PathRef]] = T {
     // val transitiveDeps = moduleDeps.flatMap(_.moduleDeps).toSet.toSeq
-    val transitiveAPiSources = T.traverse(walkTransitiveDeps.toSeq)(_.docSources)().flatten
+    val transitiveAPiSources =
+      T.traverse(walkTransitiveDeps.toSeq)(_.docSources)().flatten
     if (includeApiDocsFromThisModule()) {
       transitiveAPiSources ++ docSources()
     } else transitiveAPiSources
   }
 
-
   def mdocSourceDir = T.source { mdocDir }
 
-  /**
-  * We only consider "docs" directory,  in this module
-  */
   def mdocDir = super.millSourcePath / "docs"
 
   def assetDir = mdocDir / "_assets"
+
+  def assetDirSource = PathRef(assetDir, true)
 
   def compileCpArg: T[Seq[String]] = T {
     Seq(
@@ -76,8 +74,7 @@ trait SiteModule extends ScalaModule {
     )
   }
 
-  /**
-    * See https://docs.scala-lang.org/scala3/guides/scaladoc/settings.html
+  /** See https://docs.scala-lang.org/scala3/guides/scaladoc/settings.html
     *
     * By default we enable the snippet compiler
     *
@@ -88,30 +85,111 @@ trait SiteModule extends ScalaModule {
   override def scalaDocOptions =
     super.scalaDocOptions() ++ Seq[String]("-snippet-compiler:compile")
 
-  def siteGen: T[os.Path] = T.persistent { // persistent otherwise live reloading borks
-    mdocSourceDir() // force this to trigger on change to dir sources
-    val apidir = apiOnlyGen()
-    val docdir = docOnlyGen()
+    /**
+      * Creates a static site, with the API docs, and the your own docs.
+      *
+      * 1. Obtain API only docs
+      * 2. Obtain your own docs
+      * 3. Compare 1 & 2 against caches. Recreate the entire site if the API has changed.
+      * 4. Delete any removed docs
+      * 5. Copy the _contents_ of any changed docs into the site
+      *
+      * This algorithm is potentially a lot more complex than it needs to be.
+      *
+      * However, without 5, live reloading, enabled by third party applications,  e.g. browsersync, or VSCodes live reaload extension, gets janky.
+      *
+      * Or, it takes ages, as generating API docs is slow. Making this, my best take on it.
+      *
+      * @return The folder of a static site you can server somwhere. Github pages friendly.
+      */
+  def siteGen: T[os.Path] =
+    T.persistent { // persistent otherwise live reloading borks
+      mdocSourceDir() // force this to trigger on change to dir sources
+      val apidir = apiOnlyGen()
+      val docdir = docOnlyGen()
 
-    // mdoc()
-    os.copy.over(apidir, T.dest)
-    os.copy.over(docdir / "docs", T.dest / "docs")
-    val originalIndex = os.read(T.dest / "index.html")
+      val cacheDir = T.dest / "cache"
+      val siteDir = T.dest / "site"
+      if (!os.exists(cacheDir)) os.makeDir.all(cacheDir)
+      val apiCacheFile = cacheDir / "cache.txt"
+      val assetCacheFile = cacheDir / "asset.txt"
+      val docCacheFile = cacheDir / "docCache.json"
 
-    // This should make the site, default to the docs page as opposed to the API page
-    // os.write.over(
-    //   T.dest / "index.html",
-    //   originalIndex
-    //   .replace(" selected","")
-    //   .replace("""class="switcher h100 " href="docs/index.html""", """class="switcher h100 selected" href="docs/index.html""")
-    // )
-    if (os.exists(assetDir)) {
-      os.copy(assetDir, T.dest, mergeFolders=true)
+      if (!os.exists(apiCacheFile)) os.write(apiCacheFile, Array.empty[Byte])
+      if (!os.exists(assetCacheFile)) os.write(assetCacheFile, Array.empty[Byte])
+      if (!os.exists(docCacheFile))
+        os.write(docCacheFile, upickle.default.write(QuickChange(Seq(), PathRef(apiCacheFile, true)) ))
+
+      // os.walk(cacheDir).foreach(println)
+      // API ------
+      val priorApiHash = os.read(apiCacheFile)
+      println(priorApiHash)
+      val apiHash = apidir.sig
+      println(apiHash)
+
+      // If the API has changed, toss everything and start again
+      if (priorApiHash != apiHash.toString()) {
+        println("API has changed, regenerating site")
+        os.write.over(cacheDir / "cache.txt", apiHash.toString())
+        os.remove.all(siteDir)
+        os.copy.over(apidir.path, siteDir)
+      }
+
+      // Docs ------
+      val priorDocHash =
+        upickle.default.read[QuickChange](os.read(docCacheFile))
+      val currDocs =
+        docdir.docs.filter(pr => os.isFile(pr.path))
+      val currDocsRelPaths = currDocs.map(_.path).map(_.subRelativeTo(docdir.base.path)).toSet
+      val priorDocsRelPaths = priorDocHash.docs.map(_.path.subRelativeTo(priorDocHash.base.path)).toSet
+
+      val allTheDocs = currDocsRelPaths.union(priorDocsRelPaths)
+
+      // delete removed documents
+      val deletedDocs = currDocsRelPaths.diff(allTheDocs)
+      // println("to delete" ++ deletedDocs.toString)
+      for(aDoc <- deletedDocs) {
+        println("Deleting " + aDoc)
+        os.remove(siteDir / aDoc)
+      }
+
+      // create (blank) added documents
+      val newDocs = currDocsRelPaths.diff(priorDocsRelPaths.removedAll(deletedDocs))
+      // println("to add" ++ newDocs.toString)
+      for (aDoc <- newDocs) {
+        if(!os.exists(siteDir / aDoc)) {
+          println("Adding " + aDoc)
+          os.write(siteDir / aDoc, Array.empty[Byte], createFolders = true)
+        }
+      }
+
+      // Copy contents of changed documents into files
+      val changed = currDocs.map(_.sig).diff(priorDocHash.docs.map(_.sig))
+
+      val toWrite = currDocs.filter(curDoc => changed.contains(curDoc.sig))
+
+      toWrite.foreach { aDoc =>
+        val path = aDoc.path.subRelativeTo(docdir.base.path)
+        // println("Writing " + path)
+        os.write.over(siteDir / path, os.read(aDoc.path).getBytes())
+      }
+
+      // println(currDocsRelPaths)
+      // println(priorDocsRelPaths)
+      // println(toWrite)
+
+      // overwrite assets if they changed
+      if (os.exists(assetDir)) {
+        if(!(os.read(assetCacheFile) == assetDirSource.sig.toString())) {
+          os.write.over(assetCacheFile, assetDirSource.sig.toString())
+          os.copy(assetDir, siteDir, mergeFolders=true, replaceExisting = true)
+        }
+      }
+      os.write.over(docCacheFile, upickle.default.write(docdir))
+      siteDir
     }
-    T.dest
-  }
 
-  def docOnlyGen: T[os.Path] = T {
+  def docOnlyGen: T[QuickChange] = T {
     val md = mdoc().path
     val origDocs = mdocSourceDir().path
     val javadocDir = T.dest / "javadoc"
@@ -120,13 +198,13 @@ trait SiteModule extends ScalaModule {
     os.makeDir.all(combinedStaticDir)
 
     def fixAssets(docFile: os.Path) = {
-      if (docFile.ext == "md"){
-        val fixyFixy = os.read(docFile).replace("../_assets/","")
+      if (docFile.ext == "md") {
+        val fixyFixy = os.read(docFile).replace("../_assets/", "")
         os.write.over(docFile, fixyFixy.getBytes())
       }
     }
 
-    //copy mdoccd files in
+    // copy mdoccd files in
     for {
       aDoc <- os.walk(md)
       rel = (combinedStaticDir / aDoc.subRelativeTo(md))
@@ -135,7 +213,7 @@ trait SiteModule extends ScalaModule {
       fixAssets(rel) // pure filth, report as bug?
     }
 
-    //copy all other doc files
+    // copy all other doc files
     for {
       aDoc <- os.walk(origDocs)
       rel = (combinedStaticDir / aDoc.subRelativeTo(mdocDir));
@@ -145,8 +223,8 @@ trait SiteModule extends ScalaModule {
       fixAssets(rel) // pure filth, report as bug?
     }
 
-    if (os.exists(assetDir)){
-      os.copy(assetDir, javadocDir, mergeFolders=true)
+    if (os.exists(assetDir)) {
+      os.copy(assetDir, javadocDir, mergeFolders = true)
     }
 
     val compileCp = compileCpArg
@@ -157,14 +235,14 @@ trait SiteModule extends ScalaModule {
       combinedStaticDir.toNIO.toString
     )
 
-    val localCp = if(includeApiDocsFromThisModule()) {
-        Lib
-          .findSourceFiles(super.docSources(), Seq("tasty"))
-          .map(_.toString()) // This will be dog slow
+    val localCp = if (includeApiDocsFromThisModule()) {
+      Lib
+        .findSourceFiles(super.docSources(), Seq("tasty"))
+        .map(_.toString()) // This will be dog slow
     } else {
-        Lib
-          .findSourceFiles(Seq(fakeSource().classes), Seq("tasty"))
-          .map(_.toString()) // fake api to speed up doc generation
+      Lib
+        .findSourceFiles(Seq(fakeSource().classes), Seq("tasty"))
+        .map(_.toString()) // fake api to speed up doc generation
     }
 
     zincWorker()
@@ -176,9 +254,14 @@ trait SiteModule extends ScalaModule {
         scalacPluginClasspath(),
         options ++ compileCpArg() ++ scalaDocOptions()
           ++ localCp
-
       ) match {
-      case true => Result.Success(javadocDir)
+      case true =>
+        Result.Success(
+          QuickChange(
+            os.walk(javadocDir / "docs").filter(os.isFile).map(PathRef(_)).toSeq,
+            PathRef(javadocDir, true)
+          )
+        )
       case false =>
         Result.Failure(
           s"""Documentation generatation failed. Cause could include be no sources files in : ${sources()} or no doc files in ${docSources()}, or an error message printed above... """
@@ -221,7 +304,7 @@ trait SiteModule extends ScalaModule {
       )
   }
 
-  def apiOnlyGen: T[os.Path] = T {
+  def apiOnlyGen: T[PathRef] = T {
     compile()
     val javadocDir = T.dest / "javadoc"
     os.makeDir.all(javadocDir)
@@ -250,7 +333,7 @@ trait SiteModule extends ScalaModule {
             .map(_.toString()) // transitive api, i.e. module deps.
 
       ) match {
-      case true => Result.Success(javadocDir)
+      case true => Result.Success(PathRef(javadocDir, quick = true))
       case false =>
         Result.Failure(
           s"Documentation generatation failed. This would normally indicate that the standard mill `docJar` command on one of the underlying projects will fail. Please attempt to fix that problem and try again  "
@@ -275,17 +358,6 @@ trait SiteModule extends ScalaModule {
 
     Seq(PathRef(T.dest))
   }
-
-  // def npmInstallServeDeps() = T.command {
-  //   println("npm install -g browser-sync")
-  //   os.proc("npm", "install", "-g", "browser-sync").call(stdout = os.Inherit)
-  // }
-
-  // def serveLocal() = T.command {
-  //   println("browser-sync start --server --ss " + sitePathString() + " -w")
-  //   os.proc("browser-sync", "start", "--server", "--ss", sitePathString(), "-w")
-  //     .call(stdout = os.Inherit)
-  // }
 
   def guessGithubAction: T[String] =
     s""""
@@ -332,7 +404,8 @@ trait SiteModule extends ScalaModule {
 """
 
   private val separator: Char = java.io.File.pathSeparatorChar
-  private def toArgument(p: Agg[os.Path]): String = p.iterator.mkString(s"$separator")
+  private def toArgument(p: Agg[os.Path]): String =
+    p.iterator.mkString(s"$separator")
 
   // This is the source directory, of the entire site.
   def siteSources: T[Seq[PathRef]] = T.sources { super.millSourcePath / "docs" }
