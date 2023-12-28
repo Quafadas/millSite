@@ -5,7 +5,7 @@ Aims to be a batteries included, one stop shop plugin to document a scala3 libra
 In `build.sc`
 
 ```
-import $ivy.`io.github.quafadas::mill_scala3_site_mdoc::0.0.7`
+import $ivy.`io.github.quafadas::mill_scala3_site_mdoc::{{projectVersion}}`
 
 import millSite.SiteModule
 
@@ -82,19 +82,18 @@ By default, enable the snippet compiler.
 Scaladoc options. See
 [scaladoc manual](https://docs.scala-lang.org/scala3/guides/scaladoc/index.html)
 
-If your have mill VCS plugin enabled, something like;
-
-
+If your have mills VCS plugin enabled, something like;
 
 ```
-  def latestVersion = VcsVersion.vcsState().lastTag.getOrElse("0.0.0").replace("v", "")
+  def latestVersion: T[String] = T{VcsVersion.vcsState().lastTag.getOrElse("0.0.0").replace("v", "")}
 
   override def scalaDocOptions = super.scalaDocOptions() ++  Seq(
-    "-scastie-configuration", """libraryDependencies += "io.github.quafadas" %% "scautable" % "latestVersion()"""",
+    "-scastie-configuration", s"""libraryDependencies += "io.github.quafadas" %% "scautable" % "${latestVersion()}"""",
     "-project", "scautable",
-    "-project-version", latestVersion,
+    "-project-version", latestVersion(),
   )
 ```
+Will keep the library version up to date with the latest tag, in the sense that it'll be on the docs website, and
 
 ### `def guessGithubAction: T[String]`
 
