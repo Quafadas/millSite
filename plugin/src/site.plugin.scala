@@ -123,9 +123,7 @@ trait SiteModule extends ScalaModule {
       // os.walk(cacheDir).foreach(println)
       // API ------
       val priorApiHash = os.read(apiCacheFile)
-      println(priorApiHash)
       val apiHash = apidir.sig
-      println(apiHash)
 
       // If the API has changed, toss everything and start again
       if (priorApiHash != apiHash.toString()) {
@@ -147,7 +145,7 @@ trait SiteModule extends ScalaModule {
 
       // delete removed documents
       val deletedDocs = currDocsRelPaths.diff(allTheDocs)
-      // println("to delete" ++ deletedDocs.toString)
+      // // println("to delete" ++ deletedDocs.toString)
       for(aDoc <- deletedDocs) {
         println("Deleting " + aDoc)
         os.remove(siteDir / aDoc)
@@ -171,6 +169,8 @@ trait SiteModule extends ScalaModule {
       toWrite.foreach { aDoc =>
         val path = aDoc.path.subRelativeTo(docdir.base.path)
         // println("Writing " + path)
+        // println(siteDir / path)
+        // println(aDoc.path)
         os.write.over(siteDir / path, os.read(aDoc.path).getBytes())
       }
 
