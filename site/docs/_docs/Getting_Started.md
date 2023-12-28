@@ -28,7 +28,7 @@ $ mill site.siteGen
 - Uses mill caching to accelerate the editing loop
 - Auto fixes assets paths so you can both enjoying IDE previews _and_ seamlessly deploy to github pages
 - Plays nicely with modern git actions for ease of deployment to github pages
-- Undertakes some wild file copy gymnastics, to ensure "live reload" through something like the live reload extension (VSCode) or browsersync (browser) works as expected
+- Undertakes some wild file copy gymnastics, to ensure "live reload" through something like the [Live Server Extension](https://marketplace.visualstudio.com/items?itemName=ritwickdey.LiveServer) or [browsersync](https://www.browsersync.io/) works as expected
 
 ## Examples
 
