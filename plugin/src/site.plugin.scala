@@ -127,7 +127,7 @@ trait SiteModule extends ScalaModule {
 
       // If the API has changed, toss everything and start again
       if (priorApiHash != apiHash.toString()) {
-        println("API has changed, regenerating site")
+        // println("API has changed, regenerating site")
         os.write.over(cacheDir / "cache.txt", apiHash.toString())
         os.remove.all(siteDir)
         os.copy.over(apidir.path, siteDir)
@@ -147,7 +147,7 @@ trait SiteModule extends ScalaModule {
       val deletedDocs = currDocsRelPaths.diff(allTheDocs)
       // // println("to delete" ++ deletedDocs.toString)
       for(aDoc <- deletedDocs) {
-        println("Deleting " + aDoc)
+        // println("Deleting " + aDoc)
         os.remove(siteDir / aDoc)
       }
 
@@ -156,7 +156,7 @@ trait SiteModule extends ScalaModule {
       // println("to add" ++ newDocs.toString)
       for (aDoc <- newDocs) {
         if(!os.exists(siteDir / aDoc)) {
-          println("Adding " + aDoc)
+          // println("Adding " + aDoc)
           os.write(siteDir / aDoc, Array.empty[Byte], createFolders = true)
         }
       }
