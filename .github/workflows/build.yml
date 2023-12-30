@@ -24,8 +24,6 @@ jobs:
         with:
           java-version: 17
           distribution: 'temurin'
-      - run: git describe --tags --abbrev=0
-      - run: ./millw show vcs
       - run: ./millw __.compile
       - run: ./millw itest.test
       - run: ./millw __.publishLocal
