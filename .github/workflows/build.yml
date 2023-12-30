@@ -23,6 +23,7 @@ jobs:
           java-version: 17
           distribution: 'temurin'
       - uses: actions/checkout@v3
+      - run: git -v
       - run: ./millw show site.latestVersion
       - run: ./millw __.compile
       - run: ./millw itest.test
