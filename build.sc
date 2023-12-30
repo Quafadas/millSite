@@ -61,7 +61,7 @@ object itest extends MillIntegrationTestModule {
 
 }
 
-
+def vcs = T{VcsVersion.vcsState()}
 
 object site extends ScalaModule {
   def latestVersion: T[String] = T{VcsVersion.vcsState().lastTag.getOrElse("0.0.0").replace("v", "")}
