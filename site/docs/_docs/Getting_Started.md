@@ -82,16 +82,16 @@ By default, enable the snippet compiler.
 Scaladoc options. See
 [scaladoc manual](https://docs.scala-lang.org/scala3/guides/scaladoc/index.html)
 
-In the relatively common case, where you have mills VCS plugin enabled and wish to publish a library, something like;
+In the relatively common case, where you have mills VCS plugin enabled and wish to publish a library called (weirdly) "scautable", something like;
 
 ```
   def latestVersion: T[String] = T{VcsVersion.vcsState().lastTag.getOrElse("0.0.0").replace("v", "")}
 
   override def scalaDocOptions = super.scalaDocOptions() ++  Seq(
-    "-scastie-configuration", s"""libraryDependencies += "io.github.quafadas" %% "scautable" % "${latestVersion()}"""",
+    "-scastie-configuration", s"""libraryDependencies += "io.github.quafadas" %% "scautable" % "${latestVersion()}" """,
     "-project", "scautable",
     "-project-version", latestVersion(),
-    s"-social-links:github::${plugin.pomSettings().url}"
+    s"-social-links:github::${scautable.pomSettings().url}"
   )
 ```
 
