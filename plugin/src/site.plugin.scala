@@ -82,26 +82,29 @@ trait SiteModule extends ScalaModule {
     *
     * @return
     */
-  override def scalaDocOptions =
+  override def scalaDocOptions = T {
     super.scalaDocOptions() ++ Seq[String]("-snippet-compiler:compile")
+  }
 
-    /**
-      * Creates a static site, with the API docs, and the your own docs.
-      *
-      * 1. Obtain API only docs
-      * 2. Obtain your own docs
-      * 3. Compare 1 & 2 against caches. Recreate the entire site if the API has changed.
-      * 4. Delete any removed docs
-      * 5. Copy the _contents_ of any changed docs into the site
-      *
-      * This algorithm is potentially a lot more complex than it needs to be.
-      *
-      * However, without 5, live reloading, enabled by third party applications,  e.g. browsersync, or VSCodes live reaload extension, gets janky.
-      *
-      * Or, it takes ages, as generating API docs is slow. Making this, my best take on it.
-      *
-      * @return The folder of a static site you can server somwhere. Github pages friendly.
-      */
+  /** Creates a static site, with the API docs, and the your own docs.
+    *
+    *   1. Obtain API only docs 2. Obtain your own docs 3. Compare 1 & 2 against
+    *      caches. Recreate the entire site if the API has changed. 4. Delete
+    *      any removed docs 5. Copy the _contents_ of any changed docs into the
+    *      site
+    *
+    * This algorithm is potentially a lot more complex than it needs to be.
+    *
+    * However, without 5, live reloading, enabled by third party applications,
+    * e.g. browsersync, or VSCodes live reaload extension, gets janky.
+    *
+    * Or, it takes ages, as generating API docs is slow. Making this, my best
+    * take on it.
+    *
+    * @return
+    *   The folder of a static site you can server somwhere. Github pages
+    *   friendly.
+    */
   def siteGen: T[os.Path] =
     T.persistent { // persistent otherwise live reloading borks
       mdocSourceDir() // force this to trigger on change to dir sources
@@ -116,9 +119,13 @@ trait SiteModule extends ScalaModule {
       val docCacheFile = cacheDir / "docCache.json"
 
       if (!os.exists(apiCacheFile)) os.write(apiCacheFile, Array.empty[Byte])
-      if (!os.exists(assetCacheFile)) os.write(assetCacheFile, Array.empty[Byte])
+      if (!os.exists(assetCacheFile))
+        os.write(assetCacheFile, Array.empty[Byte])
       if (!os.exists(docCacheFile))
-        os.write(docCacheFile, upickle.default.write(QuickChange(Seq(), PathRef(apiCacheFile, true)) ))
+        os.write(
+          docCacheFile,
+          upickle.default.write(QuickChange(Seq(), PathRef(apiCacheFile, true)))
+        )
 
       // os.walk(cacheDir).foreach(println)
       // API ------
@@ -138,24 +145,28 @@ trait SiteModule extends ScalaModule {
         upickle.default.read[QuickChange](os.read(docCacheFile))
       val currDocs =
         docdir.docs.filter(pr => os.isFile(pr.path))
-      val currDocsRelPaths = currDocs.map(_.path).map(_.subRelativeTo(docdir.base.path)).toSet
-      val priorDocsRelPaths = priorDocHash.docs.map(_.path.subRelativeTo(priorDocHash.base.path)).toSet
+      val currDocsRelPaths =
+        currDocs.map(_.path).map(_.subRelativeTo(docdir.base.path)).toSet
+      val priorDocsRelPaths = priorDocHash.docs
+        .map(_.path.subRelativeTo(priorDocHash.base.path))
+        .toSet
 
       val allTheDocs = currDocsRelPaths.union(priorDocsRelPaths)
 
       // delete removed documents
       val deletedDocs = currDocsRelPaths.diff(allTheDocs)
       // // println("to delete" ++ deletedDocs.toString)
-      for(aDoc <- deletedDocs) {
+      for (aDoc <- deletedDocs) {
         // println("Deleting " + aDoc)
         os.remove(siteDir / aDoc)
       }
 
       // create (blank) added documents
-      val newDocs = currDocsRelPaths.diff(priorDocsRelPaths.removedAll(deletedDocs))
+      val newDocs =
+        currDocsRelPaths.diff(priorDocsRelPaths.removedAll(deletedDocs))
       // println("to add" ++ newDocs.toString)
       for (aDoc <- newDocs) {
-        if(!os.exists(siteDir / aDoc)) {
+        if (!os.exists(siteDir / aDoc)) {
           // println("Adding " + aDoc)
           os.write(siteDir / aDoc, Array.empty[Byte], createFolders = true)
         }
@@ -180,9 +191,14 @@ trait SiteModule extends ScalaModule {
 
       // overwrite assets if they changed
       if (os.exists(assetDir)) {
-        if(!(os.read(assetCacheFile) == assetDirSource.sig.toString())) {
+        if (!(os.read(assetCacheFile) == assetDirSource.sig.toString())) {
           os.write.over(assetCacheFile, assetDirSource.sig.toString())
-          os.copy(assetDir, siteDir, mergeFolders=true, replaceExisting = true)
+          os.copy(
+            assetDir,
+            siteDir,
+            mergeFolders = true,
+            replaceExisting = true
+          )
         }
       }
       os.write.over(docCacheFile, upickle.default.write(docdir))
@@ -258,7 +274,10 @@ trait SiteModule extends ScalaModule {
       case true =>
         Result.Success(
           QuickChange(
-            os.walk(javadocDir / "docs").filter(os.isFile).map(PathRef(_)).toSeq,
+            os.walk(javadocDir / "docs")
+              .filter(os.isFile)
+              .map(PathRef(_))
+              .toSeq,
             PathRef(javadocDir, true)
           )
         )

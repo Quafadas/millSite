@@ -70,10 +70,13 @@ object site extends ScalaModule {
 
   def sitePathString: T[String] = T { sitePath().toString() }
 
-  override def scalaDocOptions = super.scalaDocOptions() ++  Seq(
-    "-project-version", latestVersion(),
+  override def scalaDocOptions = T{
 
-  )
+      super.scalaDocOptions() ++ Seq(
+      "-project-version", latestVersion(),
+      s"-social-links:github::${plugin.pomSettings().url}"
+    )
+  }
 
   def serveLocal() = T.command {
     os.proc(

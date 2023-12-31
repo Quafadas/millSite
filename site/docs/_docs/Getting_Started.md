@@ -82,7 +82,7 @@ By default, enable the snippet compiler.
 Scaladoc options. See
 [scaladoc manual](https://docs.scala-lang.org/scala3/guides/scaladoc/index.html)
 
-If your have mills VCS plugin enabled, something like;
+In the relatively common case, where you have mills VCS plugin enabled and wish to publish a library, something like;
 
 ```
   def latestVersion: T[String] = T{VcsVersion.vcsState().lastTag.getOrElse("0.0.0").replace("v", "")}
@@ -91,9 +91,15 @@ If your have mills VCS plugin enabled, something like;
     "-scastie-configuration", s"""libraryDependencies += "io.github.quafadas" %% "scautable" % "${latestVersion()}"""",
     "-project", "scautable",
     "-project-version", latestVersion(),
+    s"-social-links:github::${plugin.pomSettings().url}"
   )
 ```
-Will keep the library version up to date with the latest tag, in the sense that it'll be on the docs website, and
+
+Will
+
+- keep the library version the docs reference up to date with the latest tagged release
+- add a link to the github repo
+- configure scastie to include your dependancy so that your example code can be run in browser.
 
 ### `def guessGithubAction: T[String]`
 
