@@ -6,30 +6,49 @@ import mill.api.Result
 import mill.util.Jvm.createJar
 import mill.api.PathRef
 import mill.scalalib.api.CompilationResult
+import de.tobiasroeser.mill.vcs.version.VcsVersion
+import scala.util.Try
+import mill.scalalib.publish.PomSettings
+import mill.scalalib.publish.License
+
 
 trait SiteModule extends ScalaModule {
+
+  def latestVersion = T{VcsVersion.vcsState().lastTag.getOrElse("0.0.0").replace("v", "")}
 
   // def scalaVersion = T("3.3.1")
 
   /** If we're given module dependancies, then assume we probably don't want to
     * include source files in the doc site, in the published API docs.
     */
-  def includeApiDocsFromThisModule: T[Boolean] = moduleDeps.length == 0
+  def includeApiDocsFromThisModule: Boolean = moduleDeps.length == 0
 
-  def walkTransitiveDeps: Set[JavaModule] = {
+  /**
+    * Finds everything that is going to get published
+    *
+    * @return
+    */
+  def findAllTransitiveDeps: Set[JavaModule] = {
     def loop(
         acc: Set[JavaModule],
         current: JavaModule
     ): Set[JavaModule] = {
       val newAcc = acc + current
-      val newDeps = current.moduleDeps
+      val newDeps = current.moduleDeps.filter(_.isInstanceOf[PublishModule])
         .filterNot(newAcc.contains(_))
         .toSet
       if (newDeps.isEmpty) newAcc
       else newDeps.foldLeft(newAcc)((acc, dep) => loop(acc, dep))
     }
-    loop(Set(), this)
+    val all = moduleDeps.foldLeft(Set[JavaModule]())((acc, dep) => loop(acc, dep))
+    if (includeApiDocsFromThisModule) {
+      Set(this) ++ all
+    } else {
+      all
+    }
   }
+
+  def artefactNames = T.traverse(findAllTransitiveDeps.toSeq)(_.artifactName)
 
   def scalaMdocVersion: T[String] = T("2.5.1")
 
@@ -50,8 +69,8 @@ trait SiteModule extends ScalaModule {
   def transitiveDocSources: T[Seq[PathRef]] = T {
     // val transitiveDeps = moduleDeps.flatMap(_.moduleDeps).toSet.toSeq
     val transitiveAPiSources =
-      T.traverse(walkTransitiveDeps.toSeq)(_.docSources)().flatten
-    if (includeApiDocsFromThisModule()) {
+      T.traverse(findAllTransitiveDeps.toSeq)(_.docSources)().flatten
+    if (includeApiDocsFromThisModule) {
       transitiveAPiSources ++ docSources()
     } else transitiveAPiSources
   }
@@ -74,6 +93,12 @@ trait SiteModule extends ScalaModule {
     )
   }
 
+  def findPomSettings = T.traverse(moduleDeps.filter(_.isInstanceOf[PublishModule]))(
+    _ match {
+      case pm: PublishModule => pm.pomSettings
+    }
+  ).map(_.headOption)
+
   /** See https://docs.scala-lang.org/scala3/guides/scaladoc/settings.html
     *
     * By default we enable the snippet compiler
@@ -83,7 +108,27 @@ trait SiteModule extends ScalaModule {
     * @return
     */
   override def scalaDocOptions = T {
-    super.scalaDocOptions() ++ Seq[String]("-snippet-compiler:compile")
+
+    val fromPublishSettings = findPomSettings().map{ ps =>
+      val allModules = artefactNames().map(mod => s""" "${ps.organization}" %% "${mod}" % "${latestVersion()}" """ ).mkString(
+            "libraryDependencies ++= Seq(",
+            ",",
+            ")"
+          )
+      val githubLink = s"-social-links:github::${ps.url}"
+      if (artefactNames().isEmpty) {
+        Seq(githubLink)
+       } else
+        Seq("-scastie-configuration", allModules, githubLink)
+    }
+
+
+
+    super.scalaDocOptions() ++
+    Seq[String](
+      "-snippet-compiler:compile",
+      "-project-version", latestVersion(),
+    ) ++ fromPublishSettings.getOrElse(Seq.empty[String])
   }
 
   /** Creates a static site, with the API docs, and the your own docs.
@@ -251,7 +296,7 @@ trait SiteModule extends ScalaModule {
       combinedStaticDir.toNIO.toString
     )
 
-    val localCp = if (includeApiDocsFromThisModule()) {
+    val localCp = if (includeApiDocsFromThisModule) {
       Lib
         .findSourceFiles(super.docSources(), Seq("tasty"))
         .map(_.toString()) // This will be dog slow

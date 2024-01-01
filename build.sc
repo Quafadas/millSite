@@ -32,6 +32,10 @@ object plugin extends ScalaModule with PublishModule {
     ivy"com.lihaoyi::mill-scalalib:${millVersion()}"
   )
 
+  def ivyDeps = Agg(
+    ivy"de.tototec:de.tobiasroeser.mill.vcs.version_mill0.11_2.13:0.4.0"
+  )
+
   def artifactSuffix = s"_mill${millPlatform()}_${scalaArtefactVersion()}"
 
   def publishVersion = VcsVersion.vcsState().format()

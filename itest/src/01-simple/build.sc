@@ -31,7 +31,7 @@ def verify() = T.command {
       s"Generated md file does not contain expected REPL output"
     )
 
-  assert(simples.includeApiDocsFromThisModule() == true)
+  assert(simples.includeApiDocsFromThisModule == true)
 
   simples
     .transitiveDocSources()
