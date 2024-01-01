@@ -16,7 +16,7 @@ trait SimpleModule extends ScalaModule with PublishModule {
     "iTest.org",
     "iTest.url",
     Seq(License.`Apache-2.0`),
-    VersionControl.github("",""),
+    VersionControl.github("testOwner","testProject"),
     Seq()
   )
 }
@@ -73,6 +73,7 @@ def verify() = T.command {
   assert(site.scalaDocOptions().contains("-snippet-compiler:compile"))
   assert(site.scalaDocOptions().contains("-project-version"))
   assert(site.scalaDocOptions().contains("-social-links:github::iTest.url"))
+  assert(site.scalaDocOptions().contains(s"-source-links:github://testOwner/testProject"))
   assert(site.scalaDocOptions().find(_.startsWith("""libraryDependencies ++= Seq(""")).isDefined)
   assert(site.scalaDocOptions().find(_.contains(""""iTest.org" %% "baz"""")).isDefined)
 

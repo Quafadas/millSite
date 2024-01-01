@@ -53,7 +53,6 @@ object plugin extends ScalaModule with PublishModule {
       )
     )
   }
-
 }
 
 // borked

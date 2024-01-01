@@ -11,6 +11,18 @@ Mdoc itself can be ... a bit slow. So we want to take advantage of the caching t
 
 Potential improvement: can we use mdocs watch mode?
 
+## Mermaid
+
+Woudl be cool.
+
+```mermaid
+  graph TD;
+      A-->B;
+      A-->C;
+      B-->D;
+      C-->D;
+```
+
 ## Scaladoc
 
 New scala3doc seems to be a under advertised feature.

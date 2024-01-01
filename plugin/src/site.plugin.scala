@@ -10,6 +10,7 @@ import de.tobiasroeser.mill.vcs.version.VcsVersion
 import scala.util.Try
 import mill.scalalib.publish.PomSettings
 import mill.scalalib.publish.License
+import mill.scalalib.publish.VersionControl
 
 
 trait SiteModule extends ScalaModule {
@@ -115,20 +116,25 @@ trait SiteModule extends ScalaModule {
             ",",
             ")"
           )
-      val githubLink = s"-social-links:github::${ps.url}"
+
+      val slink: Seq[String] = ps.versionControl.browsableRepository.map{repo =>
+        Seq(
+          s"-social-links:github::${ps.url}",
+          "-source-links:github://" ++ repo.replace("https://github.com/","")
+        )
+      }.getOrElse(Seq.empty[String])
+
       if (artefactNames().isEmpty) {
-        Seq(githubLink)
+        slink
        } else
-        Seq("-scastie-configuration", allModules, githubLink)
+        Seq("-scastie-configuration", allModules) ++ slink
     }
-
-
-
     super.scalaDocOptions() ++
     Seq[String](
       "-snippet-compiler:compile",
       "-project-version", latestVersion(),
     ) ++ fromPublishSettings.getOrElse(Seq.empty[String])
+
   }
 
   /** Creates a static site, with the API docs, and the your own docs.
