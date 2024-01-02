@@ -1,34 +1,16 @@
 # Goal
 
-Aims to be a batteries included, one stop shop plugin to document a scala3 library published and built with mill.
-
-In `build.sc`
-
-```
-import $ivy.`io.github.quafadas::mill_scala3_site_mdoc::{{projectVersion}}`
-
-import millSite.SiteModule
-
-object site extends SiteModule {
-  override def scalaVersion = T("3.3.1")
-  def moduleDeps = Seq(foo)
-}
-
-```
-
-```console
-$ mill site.siteGen
-```
-
+Batteries included documentation plugin with sane defaults to document a scala3 library published and built with mill.
 
 ## Features
 
 - Recursive module search to generate API doc for all modules
-- Uses Scaladoc (snippet compiler etc) for static site generation - combining API doc _and_ your docs together
+- Uses Scaladoc for static site generation - combining API doc _and_ your docs together
 - Uses mill caching to accelerate the editing loop
 - Auto fixes assets paths so you can both enjoying IDE previews _and_ seamlessly deploy to github pages
 - Plays nicely with modern git actions for ease of deployment to github pages
-- Undertakes some wild file copy gymnastics, to ensure "live reload" through something like the [Live Server Extension](https://marketplace.visualstudio.com/items?itemName=ritwickdey.LiveServer) or [browsersync](https://www.browsersync.io/) works as expected
+- Ensures "live reload" works seamlessly through something like the [Live Server Extension](https://marketplace.visualstudio.com/items?itemName=ritwickdey.LiveServer) or [browsersync](https://www.browsersync.io/) works as expected
+- Tries hard to set sane scaladoc default flags
 
 ## Examples
 
@@ -36,9 +18,14 @@ From the test suite
 
 https://github.com/Quafadas/mill_scala3_mdoc_site/blob/2f67c914124148cd34775a30b1217e1e41fef488/itest/src/02-recommended
 
+As a test, I forked PPrint and added this plugin to it. The result is here:
+https://quafadas.github.io/PPrint/docs
 
+A toy project:
 
-## Module properties
+https://quafadas.github.io/scautable/docs/
+
+## Plugin Configuration
 
 ### `def siteGen: T[PathRef]`
 
@@ -69,37 +56,23 @@ Live reload to view change without browser refresh is a function of the webserve
 
 Otherwise consider something like [browsersync](https://www.browsersync.io/)
 
-
 ### `def scalaMdocVersion: T[String] = T("2.5.1")`
 
 The version of mdoc (if you use it) to use. 2.5.1 is the latest version at the time of writing. The scaladoc snippet compiler is a drop in replacement for mdoc - you may not need this at all.
 
 ### `def scalaDocOptions: T[Seq[String]] = `
 
-By default, enable the snippet compiler.
-```super.scalaDocOptions() ++ Seq[String]("-snippet-compiler:compile")```
+By default, enables the snippet compiler and guesses a bunch of other config based on `PublishModule` settings that it finds.
 
 Scaladoc options. See
 [scaladoc manual](https://docs.scala-lang.org/scala3/guides/scaladoc/index.html)
 
-In the relatively common case, where you have mills VCS plugin enabled and wish to publish a library called (weirdly) "scautable", something like;
+By default;
 
-```
-  def latestVersion: T[String] = T{VcsVersion.vcsState().lastTag.getOrElse("0.0.0").replace("v", "")}
-
-  override def scalaDocOptions = super.scalaDocOptions() ++  Seq(
-    "-scastie-configuration", s"""libraryDependencies += "io.github.quafadas" %% "scautable" % "${latestVersion()}" """,
-    "-project", "scautable",
-    "-project-version", latestVersion(),
-    s"-social-links:github::${scautable.pomSettings().url}"
-  )
-```
-
-Will
-
-- keep the library version the docs reference up to date with the latest tagged release
-- add a link to the github repo
-- configure scastie to include your dependancy so that your example code can be run in browser.
+- injects the latest tag into the "projectVersion" variable
+- adds a link to the github repo pages configured in publish settings
+- configure scastie to include dependancies it finds, so that your example code can be run in browser.
+- sets up source links to point back to your project on github
 
 ### `def guessGithubAction: T[String]`
 

@@ -25,7 +25,7 @@ object plugin extends ScalaModule with PublishModule {
   def scalaArtefactVersion: T[String] =
     scalaVersion.map(_.split("\\.").take(2).mkString("."))
 
-  override def artifactName = "mill_scala3_site_mdoc"
+  override def artifactName = "millSite"
 
   override def compileIvyDeps = Agg(
     ivy"com.lihaoyi::mill-main:${millVersion()}",
@@ -44,10 +44,10 @@ object plugin extends ScalaModule with PublishModule {
     PomSettings(
       description = "Mill plugin for mdoc, static site generation",
       organization = "io.github.quafadas",
-      url = "https://github.com/Quafadas/mill_scala3_mdoc_site",
+      url = "https://github.com/Quafadas/millSite",
       licenses = Seq(License.`Apache-2.0`),
       versionControl =
-        VersionControl.github("quafadas", "mill_scala3_mdoc_site"),
+        VersionControl.github("quafadas", "millSite"),
       developers = Seq(
         Developer("quafadas", "Simon Parten", "https://github.com/quafadas")
       )
