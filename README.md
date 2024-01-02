@@ -1,11 +1,8 @@
-# mill_scala3_mdoc_site
+# millSite
 
-Leans into scala 3's new doc system to generate a static site.
+Leans into new scaladoc to generate a static site.
 
-Further, allows using mdoc as a preprocessing step. It turns out, that this is compatiable with scala3's compile snippets, too.
-
-[Documentation](https://quafadas.github.io/mill_scala3_mdoc_site/)
-
+[Documentation](https://quafadas.github.io/millSite/docs)
 
 Much plagarism...
 - https://github.com/hmf/mdocMill
