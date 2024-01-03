@@ -170,7 +170,7 @@ trait SiteModule extends ScalaModule {
           upickle.default.write(QuickChange(Seq(), PathRef(apiCacheFile, true)))
         )
 
-      def createAssetCache = os.write(assetCacheFile, Array.empty[Byte])
+      def createAssetCache = os.write.over(assetCacheFile, Array.empty[Byte])
 
       val cacheDir = T.dest / "cache"
       val siteDir = T.dest / "site"
