@@ -12,20 +12,21 @@ import mill.scalalib.publish.PomSettings
 import mill.scalalib.publish.License
 import mill.scalalib.publish.VersionControl
 
-
 trait SiteModule extends ScalaModule {
 
-  def latestVersion = T{VcsVersion.vcsState().lastTag.getOrElse("0.0.0").replace("v", "")}
+  def latestVersion = T {
+    VcsVersion.vcsState().lastTag.getOrElse("0.0.0").replace("v", "")
+  }
 
   // def scalaVersion = T("3.3.1")
 
   /** If we're given module dependancies, then assume we probably don't want to
     * include source files in the doc site, in the published API docs.
     */
-  def includeApiDocsFromThisModule: Boolean = moduleDeps.length == 0
+  def checkModuleModule: Unit = if (moduleDeps.length == 0)
+    throw new Exception("You must provide at least one module dependency")
 
-  /**
-    * Finds everything that is going to get published
+  /** Finds everything that is going to get published
     *
     * @return
     */
@@ -35,26 +36,24 @@ trait SiteModule extends ScalaModule {
         current: JavaModule
     ): Set[JavaModule] = {
       val newAcc = acc + current
-      val newDeps = current.moduleDeps.filter(_.isInstanceOf[PublishModule])
+      val newDeps = current.moduleDeps
+        .filter(_.isInstanceOf[PublishModule])
         .filterNot(newAcc.contains(_))
         .toSet
       if (newDeps.isEmpty) newAcc
       else newDeps.foldLeft(newAcc)((acc, dep) => loop(acc, dep))
     }
-    val all = moduleDeps.foldLeft(Set[JavaModule]())((acc, dep) => loop(acc, dep))
-    if (includeApiDocsFromThisModule) {
-      Set(this) ++ all
-    } else {
-      all
-    }
+    moduleDeps.foldLeft(Set[JavaModule]())((acc, dep) => loop(acc, dep))
   }
 
   override def docSources = T.sources {
     T.traverse(findAllTransitiveDeps.toSeq)(_.docSources)().flatten
+
   }
 
   override def compileClasspath = T {
-    T.traverse(findAllTransitiveDeps.toSeq)(_.compileClasspath)().flatten
+    T.traverse(findAllTransitiveDeps.toSeq)(_.compileClasspath)()
+      .flatten ++ super.compileClasspath()
   }
 
   def artefactNames = T.traverse(findAllTransitiveDeps.toSeq)(_.artifactName)
@@ -75,14 +74,14 @@ trait SiteModule extends ScalaModule {
 
   def mDocLibs = T { resolveDeps(mdocDepBound) }
 
-  def transitiveDocSources: T[Seq[PathRef]] = T {
-    // val transitiveDeps = moduleDeps.flatMap(_.moduleDeps).toSet.toSeq
-    val transitiveAPiSources =
-      T.traverse(findAllTransitiveDeps.toSeq)(_.docSources)().flatten
-    if (includeApiDocsFromThisModule) {
-      transitiveAPiSources ++ docSources()
-    } else transitiveAPiSources
-  }
+  // def transitiveDocSources: T[Seq[PathRef]] = T {
+  //   // val transitiveDeps = moduleDeps.flatMap(_.moduleDeps).toSet.toSeq
+  //   val transitiveAPiSources =
+  //     T.traverse(findAllTransitiveDeps.toSeq)(_.docSources)().flatten
+  //   if (includeApiDocsFromThisModule) {
+  //     transitiveAPiSources ++ docSources()
+  //   } else transitiveAPiSources
+  // }
 
   def mdocSourceDir = T.source { mdocDir }
 
@@ -102,11 +101,13 @@ trait SiteModule extends ScalaModule {
     )
   }
 
-  def findPomSettings = T.traverse(moduleDeps.filter(_.isInstanceOf[PublishModule]))(
-    _ match {
-      case pm: PublishModule => pm.pomSettings
-    }
-  ).map(_.headOption)
+  def findPomSettings = T
+    .traverse(moduleDeps.filter(_.isInstanceOf[PublishModule]))(
+      _ match {
+        case pm: PublishModule => pm.pomSettings
+      }
+    )
+    .map(_.headOption)
 
   /** See https://docs.scala-lang.org/scala3/guides/scaladoc/settings.html
     *
@@ -118,41 +119,46 @@ trait SiteModule extends ScalaModule {
     */
   override def scalaDocOptions = T {
 
-    val fromPublishSettings = findPomSettings().map{ ps =>
-      val allModules = artefactNames().map(mod => s""" "${ps.organization}" %% "${mod}" % "${latestVersion()}" """ ).mkString(
-            "libraryDependencies ++= Seq(",
-            ",",
-            ")"
-          )
-
-      val slink: Seq[String] = ps.versionControl.browsableRepository.map{repo =>
-        Seq(
-          s"-social-links:github::${ps.url}",
-          //"-source-links:github://" ++ repo.replace("https://github.com/","")
+    val fromPublishSettings = findPomSettings().map { ps =>
+      val allModules = artefactNames()
+        .map(mod =>
+          s""" "${ps.organization}" %% "${mod}" % "${latestVersion()}" """
         )
-      }.getOrElse(Seq.empty[String])
+        .mkString(
+          "libraryDependencies ++= Seq(",
+          ",",
+          ")"
+        )
+
+      val slink: Seq[String] = ps.versionControl.browsableRepository
+        .map { repo =>
+          Seq(
+            s"-social-links:github::${ps.url}"
+            // "-source-links:github://" ++ repo.replace("https://github.com/","")
+          )
+        }
+        .getOrElse(Seq.empty[String])
 
       if (artefactNames().isEmpty) {
         slink
-       } else
+      } else
         Seq("-scastie-configuration", allModules) ++ slink
     }
     super.scalaDocOptions() ++
-    Seq[String](
-      "-snippet-compiler:compile",
-      "-project-version", latestVersion(),
-    ) ++ fromPublishSettings.getOrElse(Seq.empty[String])
+      Seq[String](
+        "-snippet-compiler:compile",
+        "-project-version",
+        latestVersion()
+      ) ++ fromPublishSettings.getOrElse(Seq.empty[String])
 
   }
 
   /** Creates a static site, with the API docs, and the your own docs.
     *
-    *   1. Obtain API only docs
-    *   2. Obtain your own docs
-    *   3. Compare 1 & 2 against
-    *      caches. Recreate the entire site if the API has changed.
-    *   4. Delete any removed docs
-    *   5. Copy the _contents_ of any changed docs into the site
+    *   1. Obtain API only docs 2. Obtain your own docs 3. Compare 1 & 2 against
+    *      caches. Recreate the entire site if the API has changed. 4. Delete
+    *      any removed docs 5. Copy the _contents_ of any changed docs into the
+    *      site
     *
     * This algorithm is potentially a lot more complex than it needs to be.
     *
@@ -190,7 +196,6 @@ trait SiteModule extends ScalaModule {
       if (!os.exists(apiCacheFile)) os.write(apiCacheFile, Array.empty[Byte])
       if (!os.exists(assetCacheFile)) createAssetCache
       if (!os.exists(docCacheFile)) createDocCache
-
 
       // os.walk(cacheDir).foreach(println)
       // API ------
@@ -274,6 +279,13 @@ trait SiteModule extends ScalaModule {
       siteDir
     }
 
+  private def fixAssets(docFile: os.Path) = {
+    if (docFile.ext == "md") {
+      val fixyFixy = os.read(docFile).replace("../_assets/", "")
+      os.write.over(docFile, fixyFixy.getBytes())
+    }
+  }
+
   def docOnlyGen: T[QuickChange] = T {
     val md = mdoc().path
     val origDocs = mdocSourceDir().path
@@ -281,13 +293,6 @@ trait SiteModule extends ScalaModule {
     os.makeDir.all(javadocDir)
     val combinedStaticDir = T.dest / "static"
     os.makeDir.all(combinedStaticDir)
-
-    def fixAssets(docFile: os.Path) = {
-      if (docFile.ext == "md") {
-        val fixyFixy = os.read(docFile).replace("../_assets/", "")
-        os.write.over(docFile, fixyFixy.getBytes())
-      }
-    }
 
     // copy mdoccd files in
     for {
@@ -305,7 +310,7 @@ trait SiteModule extends ScalaModule {
       if !os.exists(rel)
     } {
       os.copy(aDoc, rel)
-      fixAssets(rel) // pure filth, report as bug?
+      // fixAssets(rel) // pure filth, report as bug?
     }
 
     if (os.exists(assetDir)) {
@@ -320,15 +325,9 @@ trait SiteModule extends ScalaModule {
       combinedStaticDir.toNIO.toString
     )
 
-    val localCp = if (includeApiDocsFromThisModule) {
-      Lib
-        .findSourceFiles(super.docSources(), Seq("tasty"))
-        .map(_.toString()) // This will be dog slow
-    } else {
-      Lib
-        .findSourceFiles(Seq(fakeSource().classes), Seq("tasty"))
-        .map(_.toString()) // fake api to speed up doc generation
-    }
+    val localCp = Lib
+      .findSourceFiles(Seq(fakeSource().classes), Seq("tasty"))
+      .map(_.toString()) // fake api to skip potentially slow doc generation
 
     zincWorker()
       .worker()
@@ -355,6 +354,16 @@ trait SiteModule extends ScalaModule {
           s"""Documentation generatation failed. Cause could include be no sources files in : ${sources()} or no doc files in ${docSources()}, or an error message printed above... """
         )
     }
+  }
+
+  /** Extract the website, from `docJar`
+    *
+    * @return
+    */
+  def publishDocs = T {
+    val toPublish = docJar().path / os.up / "javadoc"
+    os.copy(toPublish, T.dest, createFolders = true, replaceExisting = true)
+    PathRef(T.dest)
   }
 
   def fakeDoc: T[PathRef] = T {
@@ -417,7 +426,7 @@ trait SiteModule extends ScalaModule {
         scalacPluginClasspath(),
         options ++ compileCpArg() ++ scalaDocOptions()
           ++ Lib
-            .findSourceFiles(transitiveDocSources(), Seq("tasty"))
+            .findSourceFiles(docSources(), Seq("tasty"))
             .map(_.toString()) // transitive api, i.e. module deps.
 
       ) match {
@@ -437,13 +446,27 @@ trait SiteModule extends ScalaModule {
 
   def sitePathString: T[String] = T { sitePath().toString() }
 
-  /** Overwrites any md files which have been processed by mdoc.
+  /** Overwrites md files which have been pre-processed by mdoc.
     */
-
   override def docResources = T {
     val out = super.docResources()
-    for (pr <- out){os.copy.over(pr.path, T.dest)}
-    os.copy(mdoc().path, T.dest, mergeFolders = true, replaceExisting = true, createFolders = true)
+    for (pr <- out) {
+      os.copy.over(pr.path, T.dest)
+    }
+    os.copy(
+      mdoc().path,
+      T.dest,
+      mergeFolders = true,
+      replaceExisting = true,
+      createFolders = true
+    )
+
+    // Filth.
+    for (f <- os.walk(T.dest)) {
+      if(os.isFile(f)) {
+        fixAssets(f)
+      }
+    }
 
     Seq(PathRef(T.dest))
   }

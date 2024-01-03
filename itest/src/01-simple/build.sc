@@ -1,18 +1,25 @@
 import $file.plugins
+import $file.SimpleModule
 import mill._
 import mill.scalalib._
 import io.github.quafadas.millSite.SiteModule
 
+
+object foo extends SimpleModule.SimpleModule {
+
+}
+
 // Single module setup
 object simples extends SiteModule {
-  override def scalaVersion = T("3.3.1")
+  override def scalaVersion = foo.scalaVersion()
+  def moduleDeps = Seq(foo)
 }
 
 def verify() = T.command {
 
-  val compile = simples.compile().classes
+  val compile = simples.compileClasspath()
 
-  assert(os.exists(compile.path / "foo" / "Foo.class"))
+  assert(compile.exists(_.path.toString().contains("out/foo/compile.dest/classes")))
 
   val res: os.Path = simples.mdoc().path / "_docs" / "some.mdoc.md"
   if (!os.exists(res))
@@ -31,15 +38,16 @@ def verify() = T.command {
       s"Generated md file does not contain expected REPL output"
     )
 
-  assert(simples.includeApiDocsFromThisModule == true)
-
   simples
-    .transitiveDocSources()
+    .docSources()
     .map(_.path.toString())
     .find(_.contains("01-simple/out/simples/compile.dest/classes"))
 
   val api = simples.apiOnlyGen()
   assert(os.exists(api.path / "foo.html"))
+
+  val api2 = simples.apiOnlyGen()
+  assert(api2 == api) // i.e. that caching works.
 
   val docOnly = simples.docOnlyGen()
   assert(docOnly.docs.nonEmpty)
@@ -47,7 +55,12 @@ def verify() = T.command {
 
   val site = simples.siteGen()
   assert(os.exists(site / "foo.html"))
-  // ensure that the docs page, is the default page
-  // assert(os.read(site / "index.html" ).contains("""h100 selected" href="docs/index.html"""))
 
+  val toPublish = simples.publishDocs().path
+  println(toPublish)
+  assert(os.exists(toPublish / "foo.html"))
+  assert(os.exists(toPublish / "index.html"))
+  assert(os.exists(toPublish / "docs"/"some.mdoc.html"))
+  assert(os.read(toPublish / "docs"/"some.mdoc.html")
+    .contains("""// fooey: String = "foo"""))
 }
