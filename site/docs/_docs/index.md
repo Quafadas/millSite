@@ -23,7 +23,7 @@ which expects
 build.sc
 foo/
   src/
-    package.scala
+    foo.scala
 site/
   docs/
     _docs/
@@ -32,11 +32,64 @@ site/
 with which, it shoudl be possible to run
 
 ```console
-$ mill site.siteGen
+$ mill site.publishDocs
 ```
-Serve the static there using javas SimpleHttpServer (java 18+)
+After which , one can serve the static there using javas SimpleHttpServer (java 18+)
+
 ```
 $JAVA_HOME/bin/jwebserver -d [[output of mill show site.siteGen]]
 ```
 
-For live reload, other features etc, see Configuration.md
+## Motivation
+
+IMHO, scaladoc is a beautiful paradox.
+
+This plugin sets out 4 different ways to generate scaladoc, depending on your use case.
+
+|               | docJar | publishDocs  | apiOnly  | docOnly  | live  |
+|---            | ---|--- |---|---|---|
+| Fast          |    | x  |   | x | x |
+| Publishable   |    | x  |   |   |   |
+| Live reload   |    |    |   |   | x |
+| Asset preview |    | x  |   |   |   |
+
+Plus, some sane default flags for scaladoc.
+
+### docJar
+
+Vanilla mill has a `docJar` task, which generates a jar containing the scaladoc for the module. This is fast, but not publishable
+
+- Out the box, it appears one needs to choose between a markdown preview in editor, or correct publishing.
+- Incremental change is _very_ slow, for a non-trivial API, making it awkward to work with.
+- You have to put in the headspace, to figure out where the website is and mangle the path yourself... easy but annoying.
+
+### publishDocs
+```console
+$ mill site.publishDocs
+```
+A directory you can publish.
+
+- Fixes asset links
+- Source links should work properly
+
+But slow...
+
+### apiOnly
+```console
+$ mill site.apiOnlyGen
+```
+Skips the docs - if you're doc authoring, the API probably isn't changing - so use mills cache, to avoid regnerating the API. This speeds up the feedback loop.
+
+### docOnly
+```console
+$ mill site.docOnlyGen
+```
+Doesn't include API generation - this gets us a fast feedback loop to process your actual docs. It janks live realoding though, because of the delete / recreate default behaviour.
+
+### live
+```console
+$ mill site.live
+```
+Publishes incremental content updates from docOnly, mashing it into API, getting live reload!
+
+Downside : links to the API, can't work by construction. They'll look broken here, but the upside is an otherwise great editing experience.
