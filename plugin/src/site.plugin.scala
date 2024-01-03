@@ -49,6 +49,14 @@ trait SiteModule extends ScalaModule {
     }
   }
 
+  override def docSources = T.sources {
+    T.traverse(findAllTransitiveDeps.toSeq)(_.docSources)().flatten
+  }
+
+  override def compileClasspath = T {
+    T.traverse(findAllTransitiveDeps.toSeq)(_.compileClasspath)().flatten
+  }
+
   def artefactNames = T.traverse(findAllTransitiveDeps.toSeq)(_.artifactName)
 
   def scalaMdocVersion: T[String] = T("2.5.1")
@@ -434,7 +442,8 @@ trait SiteModule extends ScalaModule {
 
   override def docResources = T {
     val out = super.docResources()
-    os.copy.over(mdoc().path, T.dest)
+    for (pr <- out){os.copy.over(pr.path, T.dest)}
+    os.copy(mdoc().path, T.dest, mergeFolders = true, replaceExisting = true, createFolders = true)
 
     Seq(PathRef(T.dest))
   }
