@@ -1,7 +1,7 @@
 import $file.plugins
 import mill._
 import mill.scalalib._
-import millSite.SiteModule
+import io.github.quafadas.millSite.SiteModule
 
 // Single module setup
 object simples extends SiteModule {

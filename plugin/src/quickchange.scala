@@ -1,4 +1,4 @@
-package millSite
+package io.github.quafadas.millSite
 
 import mill.api.PathRef
 

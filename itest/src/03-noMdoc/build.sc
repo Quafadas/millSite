@@ -6,7 +6,7 @@ import $file.plugins
 import mill._
 import mill.scalalib._
 
-import millSite.SiteModule
+import io.github.quafadas.millSite.SiteModule
 
 object simples extends SiteModule {
   override def scalaVersion = T("3.3.1")

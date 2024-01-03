@@ -6,7 +6,7 @@ import $file.plugins
 import mill._
 import mill.scalalib._
 import mill.scalalib.publish._
-import millSite.SiteModule
+import io.github.quafadas.millSite.SiteModule
 
 trait SimpleModule extends ScalaModule with PublishModule {
   override def scalaVersion = T("3.3.1")
