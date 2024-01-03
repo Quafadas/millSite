@@ -164,6 +164,13 @@ trait SiteModule extends ScalaModule {
       val apidir = apiOnlyGen()
       val docdir = docOnlyGen()
 
+      val cacheDir = T.dest / "cache"
+      val siteDir = T.dest / "site"
+      if (!os.exists(cacheDir)) os.makeDir.all(cacheDir)
+      val apiCacheFile = cacheDir / "cache.txt"
+      val assetCacheFile = cacheDir / "asset.txt"
+      val docCacheFile = cacheDir / "docCache.json"
+
       def createDocCache =
         os.write.over(
           docCacheFile,
@@ -171,13 +178,6 @@ trait SiteModule extends ScalaModule {
         )
 
       def createAssetCache = os.write.over(assetCacheFile, Array.empty[Byte])
-
-      val cacheDir = T.dest / "cache"
-      val siteDir = T.dest / "site"
-      if (!os.exists(cacheDir)) os.makeDir.all(cacheDir)
-      val apiCacheFile = cacheDir / "cache.txt"
-      val assetCacheFile = cacheDir / "asset.txt"
-      val docCacheFile = cacheDir / "docCache.json"
 
       if (!os.exists(apiCacheFile)) os.write(apiCacheFile, Array.empty[Byte])
       if (!os.exists(assetCacheFile)) createAssetCache
