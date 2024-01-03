@@ -139,10 +139,12 @@ trait SiteModule extends ScalaModule {
 
   /** Creates a static site, with the API docs, and the your own docs.
     *
-    *   1. Obtain API only docs 2. Obtain your own docs 3. Compare 1 & 2 against
-    *      caches. Recreate the entire site if the API has changed. 4. Delete
-    *      any removed docs 5. Copy the _contents_ of any changed docs into the
-    *      site
+    *   1. Obtain API only docs
+    *   2. Obtain your own docs
+    *   3. Compare 1 & 2 against
+    *      caches. Recreate the entire site if the API has changed.
+    *   4. Delete any removed docs
+    *   5. Copy the _contents_ of any changed docs into the site
     *
     * This algorithm is potentially a lot more complex than it needs to be.
     *
@@ -162,6 +164,14 @@ trait SiteModule extends ScalaModule {
       val apidir = apiOnlyGen()
       val docdir = docOnlyGen()
 
+      def createDocCache =
+        os.write.over(
+          docCacheFile,
+          upickle.default.write(QuickChange(Seq(), PathRef(apiCacheFile, true)))
+        )
+
+      def createAssetCache = os.write(assetCacheFile, Array.empty[Byte])
+
       val cacheDir = T.dest / "cache"
       val siteDir = T.dest / "site"
       if (!os.exists(cacheDir)) os.makeDir.all(cacheDir)
@@ -170,13 +180,9 @@ trait SiteModule extends ScalaModule {
       val docCacheFile = cacheDir / "docCache.json"
 
       if (!os.exists(apiCacheFile)) os.write(apiCacheFile, Array.empty[Byte])
-      if (!os.exists(assetCacheFile))
-        os.write(assetCacheFile, Array.empty[Byte])
-      if (!os.exists(docCacheFile))
-        os.write(
-          docCacheFile,
-          upickle.default.write(QuickChange(Seq(), PathRef(apiCacheFile, true)))
-        )
+      if (!os.exists(assetCacheFile)) createAssetCache
+      if (!os.exists(docCacheFile)) createDocCache
+
 
       // os.walk(cacheDir).foreach(println)
       // API ------
@@ -189,6 +195,10 @@ trait SiteModule extends ScalaModule {
         os.write.over(cacheDir / "cache.txt", apiHash.toString())
         os.remove.all(siteDir)
         os.copy.over(apidir.path, siteDir)
+
+        // and invalidate the other caches
+        createDocCache
+        createAssetCache
       }
 
       // Docs ------
