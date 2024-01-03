@@ -120,7 +120,7 @@ trait SiteModule extends ScalaModule {
       val slink: Seq[String] = ps.versionControl.browsableRepository.map{repo =>
         Seq(
           s"-social-links:github::${ps.url}",
-          "-source-links:github://" ++ repo.replace("https://github.com/","")
+          //"-source-links:github://" ++ repo.replace("https://github.com/","")
         )
       }.getOrElse(Seq.empty[String])
 
