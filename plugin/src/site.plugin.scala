@@ -314,7 +314,7 @@ trait SiteModule extends ScalaModule {
     }
 
     if (os.exists(assetDir)) {
-      os.copy(assetDir, javadocDir, mergeFolders = true)
+      os.copy(assetDir, javadocDir, mergeFolders = true, replaceExisting = true)
     }
 
     val compileCp = compileCpArg
