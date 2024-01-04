@@ -172,7 +172,7 @@ trait SiteModule extends ScalaModule {
     *   The folder of a static site you can server somwhere. Github pages
     *   friendly.
     */
-  def siteGen: T[os.Path] =
+  def live: T[os.Path] =
     T.persistent { // persistent otherwise live reloading borks
       mdocSourceDir() // force this to trigger on change to dir sources
       val apidir = apiOnlyGen()
@@ -442,9 +442,7 @@ trait SiteModule extends ScalaModule {
     ivy"org.scala-lang:scala-library:${scalaVersion}"
   )
 
-  def sitePath: T[os.Path] = T { siteGen() / "javadoc" }
-
-  def sitePathString: T[String] = T { sitePath().toString() }
+  def sitePathString: T[String] = T { publishDocs().toString() }
 
   /** Overwrites md files which have been pre-processed by mdoc.
     */
@@ -461,7 +459,7 @@ trait SiteModule extends ScalaModule {
       createFolders = true
     )
 
-    // Filth.
+    // manually tamper with asset paths!!!
     for (f <- os.walk(T.dest)) {
       if(os.isFile(f)) {
         fixAssets(f)
@@ -483,7 +481,7 @@ trait SiteModule extends ScalaModule {
           java-version: 17
           distribution: 'temurin'
       - uses: actions/checkout@v3
-      - run: ./millw site.siteGen
+      - run: ./millw site.publishDocs
       - name: Setup Pages
         uses: actions/configure-pages@v4
       - uses: actions/upload-artifact@v3

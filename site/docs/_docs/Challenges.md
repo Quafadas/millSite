@@ -24,7 +24,9 @@ https://github.com/hmf/mdocMill
 
 Mdoc itself can be a bit slow. So we take advantage of the caching that mill provides, which makes it "fast enough" for now.
 
-Potential improvement: can we use mdocs watch mode?
+Potential improvement: watch mode?
+
+Probably better: TODO: Cache mdocs which aren't changed and don't regen them.
 
 ## Mermaid
 
@@ -47,7 +49,7 @@ There is a simple version of this plugin, built right into mill itself. Just run
 Solution: Use mills caching to provide incremental file level changes _to contents_ rather than delete and recrete, oh, and and pipe the API doc generation through a different task path. Bonkers... but live reload works and I like live reload.
 
 ### Live reload
-This plugin attempts something a bit odd, and splits the pipline into "API" (glacially slow) and "docs" (fast-ish. -ish.). The API is generated once, and cached (assuming it isn't changing on you). The docs are generated on every run and the two things combined in `siteGen`.
+This plugin attempts something a bit odd, and splits the pipline into "API" (glacially slow) and "docs" (fast-ish. -ish.). The API is generated once, and cached (assuming it isn't changing on you). The docs are generated on every run and the two things combined in `mill -w site.live`.
 
 In combination with mills caching, the turnaround times are pretty good. In combination with VSCodes markdown preview, live reload or something like https://browsersync.io we can get a decent live preview experience.
 

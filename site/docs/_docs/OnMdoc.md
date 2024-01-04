@@ -21,4 +21,8 @@ Works great in docs.
 
 ## Scala JS
 
-I have not yet, managed to configure scalaDocOptions to run scastie in scalaJS mode. MDoc could remain an attractive target for scala JS docs.
+I have not yet, managed to configure scalaDocOptions to run scastie in scalaJS mode.
+
+MDoc could remain an attractive target for scala JS docs.
+
+TODO : Cross publishing API scaladoc?

@@ -46,12 +46,12 @@ IMHO, scaladoc is a beautiful paradox.
 
 This plugin sets out 4 different ways to generate scaladoc, depending on your use case.
 
-|               | docJar | publishDocs  | apiOnly  | docOnly  | live  |
+|               | docJar | publishDocs  | apiOnly  | docOnly  | live |
 |---            | ---|--- |---|---|---|
-| Fast          |    | x  |   | x | x |
+| Fast          |    |    |   | x | x |
 | Publishable   |    | x  |   |   |   |
 | Live reload   |    |    |   |   | x |
-| Asset preview |    | x  |   |   |   |
+| Asset preview |    | x  |   |   | x |
 
 Plus, some sane default flags for scaladoc.
 
@@ -59,7 +59,7 @@ Plus, some sane default flags for scaladoc.
 
 Vanilla mill has a `docJar` task, which generates a jar containing the scaladoc for the module. This is fast, but not publishable
 
-- Out the box, it appears one needs to choose between a markdown preview in editor, or correct publishing.
+- Out the box, the way scaladoc treats assets (images) it appears one needs to choose between a markdown preview in IDE, or correct publishing.
 - Incremental change is _very_ slow, for a non-trivial API, making it awkward to work with.
 - You have to put in the headspace, to figure out where the website is and mangle the path yourself... easy but annoying.
 
@@ -67,29 +67,31 @@ Vanilla mill has a `docJar` task, which generates a jar containing the scaladoc 
 ```console
 $ mill site.publishDocs
 ```
-A directory you can publish.
+A directory you can publish. Simple.
 
 - Fixes asset links
 - Source links should work properly
 
 But slow...
 
-### apiOnly
+### apiGenOnly
 ```console
 $ mill site.apiOnlyGen
 ```
-Skips the docs - if you're doc authoring, the API probably isn't changing - so use mills cache, to avoid regnerating the API. This speeds up the feedback loop.
+Skips the docs - if you're doc authoring, the API probably isn't changing - so use mills cache, to avoid regnerating the API. This can speed up the scaladoc feedback loop (if doc gen is slow).
 
-### docOnly
+### docGenOnly
 ```console
 $ mill site.docOnlyGen
 ```
 Doesn't include API generation - this gets us a fast feedback loop to process your actual docs. It janks live realoding though, because of the delete / recreate default behaviour.
 
+Also, as the API doesn't exist, API links won't work properly.
+
 ### live
 ```console
 $ mill site.live
 ```
-Publishes incremental content updates from docOnly, mashing it into API, getting live reload!
+Publishes _incremental_ content updates apiDoc and docOnly live reload!
 
 Downside : links to the API, can't work by construction. They'll look broken here, but the upside is an otherwise great editing experience.
