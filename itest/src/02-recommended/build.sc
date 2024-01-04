@@ -48,6 +48,11 @@ def verify() = T.command {
   )
 
   assert(
+    os.read(siteGen / "docs" / "other.html")
+      .contains("""src="../images/recomend.png""")
+  )
+
+  assert(
     os.exists(
       siteGen / "docs" / "blog" / "2024" / "01" / "01" / "integration-test.html"
     )

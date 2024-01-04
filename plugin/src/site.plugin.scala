@@ -310,7 +310,7 @@ trait SiteModule extends ScalaModule {
       if !os.exists(rel)
     } {
       os.copy(aDoc, rel)
-      // fixAssets(rel) // pure filth, report as bug?
+      fixAssets(rel) // pure filth, report as bug?
     }
 
     if (os.exists(assetDir)) {
