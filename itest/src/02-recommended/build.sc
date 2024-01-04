@@ -33,7 +33,7 @@ def verify() = T.command {
   // println(site.walkTransitiveDeps)
   // println(site.transitiveDocSources())
 
-  val siteGen = site.siteGen()
+  val siteGen = site.live()
   assert(os.exists(siteGen / "baz.html"))
   assert(os.exists(siteGen / "bar.html"))
   assert(os.exists(siteGen / "foo.html"))

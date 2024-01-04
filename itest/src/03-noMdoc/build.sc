@@ -16,6 +16,6 @@ object site extends SiteModule {
 }
 
 def verify() = T.command {
-  val makesite = site.siteGen()
+  val makesite = site.live()
   assert(os.exists(makesite / "docs" / "some.html"))
 }

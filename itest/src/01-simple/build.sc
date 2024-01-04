@@ -53,7 +53,7 @@ def verify() = T.command {
   assert(docOnly.docs.nonEmpty)
   assert(docOnly.docs.size == 2)
 
-  val site = simples.siteGen()
+  val site = simples.live()
   assert(os.exists(site / "foo.html"))
 
   val toPublish = simples.publishDocs().path
