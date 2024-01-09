@@ -2,8 +2,17 @@
 
 This was a deep rabbit hole.
 
-Mill itself, was really nice to work with. Here's a little bit of a list of things which took some time to get setup, and or / remain open for ideas.
+Mill itself, was really nice to work with. Here's a short of a list of things which took some time to get setup, and or / remain open for ideas.
 
+### Live reload
+
+This is the "killer feature", if it may be described as such.
+
+This plugin splits documentation pipline into "API" (glacially slow) and "docs" (fast-ish. -ish.). The API is generated once, and cached (assuming it isn't changing on you). The docs are generated on every run and the two things combined in `mill -w site.live`.
+
+In combination with mills caching, the turnaround times are pretty good. In combination with VSCodes markdown preview, live reload or something like https://browsersync.io we can get a decent live preview experience.
+
+Complex though... jury is out on this one.
 
 ## Scaladoc
 
@@ -15,20 +24,20 @@ Opinion : having your docs and the API docs unified makes life in userland bette
 
 Niggle: Current scaladoc creates a static site in the which the default "index.html" shows the API. As a user, I don't want to be hit over the head with the API. I want to see the "Getting Started" page.
 
-Solution: Configure this _outside_ the website itself, and append "/docs" (i.e. depart from the github pages checkbox default) to the pages URL you direct people to.
+![doc_fix](../images/fix_link.png)
+
+Solution: Configure your landing page _outside_ the website itself, and append "/docs" (i.e. depart from the github pages checkbox default) to the pages URL you direct people to.
 
 ## Mdoc
 
 Getting the classpath _right_ was painful. See here for inspiration:
 https://github.com/hmf/mdocMill
 
-Mdoc itself can be a bit slow. So we take advantage of the caching that mill provides, which makes it "fast enough" for now.
+Mdoc itself can be a bit slow. So we take advantage of mill's potential for incremental, persistent caching. Incremental editing, is very fast.
 
-Potential improvement: watch mode?
+## Mermaid !TODO!
 
-Probably better: TODO: Cache mdocs which aren't changed and don't regen them.
-
-## Mermaid
+Hopefully via mdoc's scalaJS integration
 
 https://mermaid.js.org
 
@@ -42,29 +51,27 @@ Woudl be cool. Doesn't work right now, and likely beyond my ability to influence
       C-->D;
 ```
 
-## Effort
+## Complexity
 
-There is a simple version of this plugin, built right into mill itself. Just run `docJar`. However for a non-trivially sized API, it's slow. Like... suuuuuuuuper slow, even on incremental change because it seems to always regen the whole API. Plus live reload always breaks because of mills default "delete and recreate" behaviour.
+There is a simple version of this plugin, built right into mill itself. Just run `docJar`. However for a non-trivially sized API, it's slow. Like... suuuuuuuuper slow, even on incremental change, because it always re-generates the whole API doc.
 
-Solution: Use mills caching to provide incremental file level changes _to contents_ rather than delete and recrete, oh, and and pipe the API doc generation through a different task path. Bonkers... but live reload works and I like live reload.
+Plus live reload always breaks because of mills default "delete and recreate" behaviour.
 
-### Live reload
-This plugin attempts something a bit odd, and splits the pipline into "API" (glacially slow) and "docs" (fast-ish. -ish.). The API is generated once, and cached (assuming it isn't changing on you). The docs are generated on every run and the two things combined in `mill -w site.live`.
+This plugin accepts a boatload of complexity, to enable an incremental experience.
 
-In combination with mills caching, the turnaround times are pretty good. In combination with VSCodes markdown preview, live reload or something like https://browsersync.io we can get a decent live preview experience.
+Importantly though, for publishing, we eject from that complexity and revert to mills own, tested and trusted, `docJar` task. This guarantees reliability, and also reduces the risk of this plugin becoming a maintenance burden.
 
-Complex though... jury is out on this one.
-
-## Publishing
+## Publishing via GHA
 
 Some jiggery monkery was required to get new github actions pages to publish correctly. Seems to work really well now though.
 
-## Ensuring scalaodc features work
+## Todo List
 
 - [x] Let's test a source link. [[UserApi|io.github.quafadas.millSite.UserApi]]
 - [x] Scastie (snippet compiler)
 - [x] Api Gen
 - [x] Github pages
 - [x] project version
+- [x] mdoc caching
 - [ ] mdoc JS
 - [ ] cross platform API?

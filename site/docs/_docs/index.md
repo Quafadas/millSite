@@ -37,8 +37,20 @@ $ mill site.publishDocs
 After which , one can serve the static there using javas SimpleHttpServer (java 18+)
 
 ```
-$JAVA_HOME/bin/jwebserver -d [[output of mill show site.siteGen]]
+$JAVA_HOME/bin/jwebserver -d [[output of mill show site.publishDocs]]
 ```
+
+So far, so good. But slow.
+
+## Live reload
+
+```console
+$ mill -w site.live
+```
+Will re generate the site every time you save an edit to a doc file. This task, performs an absurd dance, to ensure incremental (fast) updates, enabling "live reload".
+
+See [configuration](configuration.md#live-reload) for more details on getting a good live reload experience.
+
 
 ## Motivation
 
@@ -78,7 +90,7 @@ But slow...
 ```console
 $ mill site.apiOnlyGen
 ```
-Skips the docs - if you're doc authoring, the API probably isn't changing - so use mills cache, to avoid regnerating the API. This can speed up the scaladoc feedback loop (if doc gen is slow).
+Skips the docs - if you're doc authoring, the API probably isn't changing - so we use mills cache, to _avoid_ regnerating the API. This can speed up the feedback loop on the docs you are writing (if doc gen is slow).
 
 ### docGenOnly
 ```console
@@ -92,6 +104,6 @@ Also, as the API doesn't exist, API links won't work properly.
 ```console
 $ mill site.live
 ```
-Publishes _incremental_ content updates apiDoc and docOnly live reload!
+Publishes _incremental_ content updates by relying on [apiGenOnly](#apigenonly) and [docGenOnly](#docgenonly) to enable live reload.
 
 Downside : links to the API, can't work by construction. They'll look broken here, but the upside is an otherwise great editing experience.

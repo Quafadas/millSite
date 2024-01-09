@@ -448,7 +448,7 @@ trait SiteModule extends ScalaModule {
 
   /** Overwrites md files which have been pre-processed by mdoc.
     */
-  override def docResources = T {
+  override def docResources: Target[Seq[PathRef]] = T {
     val out = super.docResources()
     for (pr <- out) {
       os.copy.over(pr.path, T.dest)
