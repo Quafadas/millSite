@@ -60,7 +60,7 @@ def verify() = T.command {
   println(toPublish)
   assert(os.exists(toPublish / "foo.html"))
   assert(os.exists(toPublish / "index.html"))
-  assert(os.exists(toPublish / "docs"/"some.mdoc.html"))
-  assert(os.read(toPublish / "docs"/"some.mdoc.html")
+  assert(os.exists(toPublish / "docs" / "some.mdoc.html"))
+  assert(os.read(toPublish / "docs" / "some.mdoc.html")
     .contains("""// fooey: String = "foo"""))
 }

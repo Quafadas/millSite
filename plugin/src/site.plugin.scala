@@ -11,6 +11,7 @@ import scala.util.Try
 import mill.scalalib.publish.PomSettings
 import mill.scalalib.publish.License
 import mill.scalalib.publish.VersionControl
+import os.SubPath
 
 trait SiteModule extends ScalaModule {
 
@@ -295,21 +296,22 @@ trait SiteModule extends ScalaModule {
     os.makeDir.all(combinedStaticDir)
 
     // copy mdoccd files in
+
     for {
-      aDoc <- os.walk(md)
+      aDoc <- os.walk(md).filter(os.isFile)
       rel = (combinedStaticDir / aDoc.subRelativeTo(md))
     } {
-      os.copy.over(aDoc, rel)
+      os.copy.over(aDoc, rel, createFolders = true)
       fixAssets(rel) // pure filth, report as bug?
     }
 
     // copy all other doc files
     for {
-      aDoc <- os.walk(origDocs)
+      aDoc <- os.walk(origDocs).filter(os.isFile)
       rel = (combinedStaticDir / aDoc.subRelativeTo(mdocDir));
       if !os.exists(rel)
     } {
-      os.copy(aDoc, rel)
+      os.copy(aDoc, rel, createFolders = true)
       fixAssets(rel) // pure filth, report as bug?
     }
 
@@ -461,7 +463,7 @@ trait SiteModule extends ScalaModule {
 
     // manually tamper with asset paths!!!
     for (f <- os.walk(T.dest)) {
-      if(os.isFile(f)) {
+      if (os.isFile(f)) {
         fixAssets(f)
       }
     }
@@ -527,37 +529,62 @@ trait SiteModule extends ScalaModule {
       .map(PathRef(_))
   }
 
-  def mdoc: T[PathRef] = T {
+  def mdoc: T[PathRef] = T.persistent {
     compile()
+    val cacheDir = T.dest / "cache"
+    val mdoccdDir = T.dest / "mdoccd"
+    val cacheFile = cacheDir / "cache.json"
+    if (!os.exists(cacheDir)) os.makeDir.all(cacheDir)
+    if (!os.exists(mdoccdDir)) os.makeDir.all(mdoccdDir)
+    if (!os.exists(cacheFile)) os.write(cacheFile, "[]")
     val cp = runClasspath().map(_.path)
     val rp = mDocLibs().map(_.path)
     val dir = T.dest.toIO.getAbsolutePath
-    if (!mdocSources().isEmpty) {
-      val dirParams = mdocSources()
-        .map(_.path)
-        .map { pr =>
-          Seq(
-            "--in",
-            pr.toIO.getAbsolutePath,
-            "--out",
-            (T.dest / pr.subRelativeTo(mdocDir)).toIO.getAbsolutePath
-          )
-        }
-        .iterator
-        .flatten
-        .toSeq ++ Seq("--classpath", toArgument(cp ++ rp))
+    val mdocSources_ = mdocSources().filter(pr => os.isFile(pr.path))
+    val cached = upickle.default.read[Seq[PathRef]](os.read(cacheFile))
 
-      mill.util.Jvm.runSubprocess(
-        mainClass = "mdoc.Main",
-        classPath = rp,
-        jvmArgs = forkArgs(),
-        envArgs = forkEnv(),
-        dirParams,
-        workingDir = forkWorkingDir(),
-        useCpPassingJar = true
-      ) // classpath can be long. On windows will barf without passing as Jar
+    val cachedList = cached.map(cmdoc => cmdoc.path.subRelativeTo(mdocDir)).toSet
+    val currList = mdocSources_.map(cmdoc => cmdoc.path.subRelativeTo(mdocDir)).toSet
+
+    cachedList.diff(currList).foreach(del => os.remove(mdoccdDir / del))
+
+    if (!mdocSources_.isEmpty) {
+
+      val checkCache = mdocSources_.map(_.sig).diff(cached.map(_.sig))
+      println(checkCache)
+      val toProceass = mdocSources_.filter { pr =>
+        checkCache.contains(pr.sig)
+      }
+      if (!toProceass.isEmpty) {
+
+      val dirParams = toProceass
+          .map(_.path)
+          .map { pr =>
+            Seq(
+              "--in",
+              pr.toIO.getAbsolutePath,
+              "--out",
+              (mdoccdDir / pr.subRelativeTo(mdocDir)).toIO.getAbsolutePath
+            )
+          }
+          .iterator
+          .flatten
+          .toSeq ++ Seq("--classpath", toArgument(cp ++ rp))
+
+        mill.util.Jvm.runSubprocess(
+          mainClass = "mdoc.Main",
+          classPath = rp,
+          jvmArgs = forkArgs(),
+          envArgs = forkEnv(),
+          dirParams,
+          workingDir = forkWorkingDir(),
+          useCpPassingJar = true
+        ) // classpath can be long. On windows will barf without passing as Jar
+        os.write.over(cacheFile, upickle.default.write(mdocSources_))
+      }
     }
-    PathRef(T.dest)
+
+    PathRef(mdoccdDir)
   }
 
 }

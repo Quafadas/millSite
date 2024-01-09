@@ -17,5 +17,6 @@ object site extends SiteModule {
 
 def verify() = T.command {
   val makesite = site.live()
+  assert(os.exists(site.mdoc().path))
   assert(os.exists(makesite / "docs" / "some.html"))
 }
