@@ -40,6 +40,21 @@ trait SiteJSModule extends ScalaJSModule {
     }
   }
 
+  def mdocDep: T[Agg[Dep]] = T(
+    Agg(
+      ivy"org.scalameta::mdoc-js:${scalaMdocVersion()}"
+        .exclude("org.scala-lang" -> "scala3-compiler_3")
+        .exclude("org.scala-lang" -> "scala3-library_3"),
+      ivy"org.scala-lang::scala3-compiler:${scalaVersion()}"
+    )
+  )
+
+  def mdocDepBound: T[Agg[BoundDep]] =
+    mdocDep().map(Lib.depToBoundDep(_, scalaVersion()))
+
+  def mDocLibs = T { resolveDeps(mdocDepBound) }
+
+
   protected def mdocJsDepBound: T[Agg[BoundDep]] =
     mdocJSDependency().map(Lib.depToBoundDep(_, scalaVersion()))
 
@@ -582,7 +597,7 @@ trait SiteModule extends ScalaModule {
     if (!os.exists(mdoccdDir)) os.makeDir.all(mdoccdDir)
     if (!os.exists(cacheFile)) os.write(cacheFile, "[]")
     val cp = runClasspath().map(_.path)
-    val rp = mDocLibs().map(_.path)
+    val rp = jsSiteModule.mDocLibs().map(_.path)
     val dir = T.dest.toIO.getAbsolutePath
     val mdocSources_ = mdocSources().filter(pr => os.isFile(pr.path))
     val cached = upickle.default.read[Seq[PathRef]](os.read(cacheFile))
