@@ -29,7 +29,8 @@ object plugin extends ScalaModule with PublishModule {
 
   override def compileIvyDeps = Agg(
     ivy"com.lihaoyi::mill-main:${millVersion()}",
-    ivy"com.lihaoyi::mill-scalalib:${millVersion()}"
+    ivy"com.lihaoyi::mill-scalalib:${millVersion()}",
+    ivy"com.lihaoyi::mill-scalajslib:${millVersion()}"
   )
 
   def ivyDeps = Agg(

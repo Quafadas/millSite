@@ -2,6 +2,8 @@ package io.github.quafadas.millSite
 
 import mill._
 import mill.scalalib._
+import mill.scalajslib._
+
 import mill.api.Result
 import mill.util.Jvm.createJar
 import mill.api.PathRef
@@ -13,7 +15,49 @@ import mill.scalalib.publish.License
 import mill.scalalib.publish.VersionControl
 import os.SubPath
 
+trait SiteJSModule extends ScalaJSModule {
+
+  def scalaMdocVersion: T[String] = T("2.5.1")
+
+  protected def linkerDependency = T.task {
+    val sjs = scalaJSVersion()
+    artifactScalaVersion() match {
+      case "3"   => Agg(ivy"org.scala-js:scalajs-linker_2.13:$sjs")
+      case other => Agg(ivy"org.scala-js:scalajs-linker_$other:$sjs")
+    }
+  }
+
+  protected def linkerDepBound: T[Agg[BoundDep]] =
+    linkerDependency().map(Lib.depToBoundDep(_, scalaVersion()))
+
+  def linkerLibs = T { resolveDeps(linkerDepBound) }
+
+  def mdocJSDependency = T.task {
+    val mdocV = scalaMdocVersion()
+    artifactScalaVersion() match {
+      case "3"   => Agg(ivy"org.scalameta:mdoc-js-worker_3:$mdocV")
+      case other => Agg(ivy"org.scalameta:mdoc-js-worker_$other:$mdocV")
+    }
+  }
+
+  protected def mdocJsDepBound: T[Agg[BoundDep]] =
+    mdocJSDependency().map(Lib.depToBoundDep(_, scalaVersion()))
+
+  def mdocJsLibs = T { resolveDeps(mdocJsDepBound) }
+
+  def mdocJSLinkerClasspath = T{(mdocJsLibs() ++ linkerLibs()).map(_.path)}
+
+  override def ivyDeps: T[Agg[Dep]] = super.ivyDeps()
+
+}
+
 trait SiteModule extends ScalaModule {
+
+  def jsSiteModule: SiteJSModule =
+    new SiteJSModule {
+      override def scalaVersion: T[String] = "3.3.1"
+      override def scalaJSVersion: T[String] = "1.14.0"
+    }
 
   def latestVersion = T {
     VcsVersion.vcsState().lastTag.getOrElse("0.0.0").replace("v", "")
@@ -543,8 +587,10 @@ trait SiteModule extends ScalaModule {
     val mdocSources_ = mdocSources().filter(pr => os.isFile(pr.path))
     val cached = upickle.default.read[Seq[PathRef]](os.read(cacheFile))
 
-    val cachedList = cached.map(cmdoc => cmdoc.path.subRelativeTo(mdocDir)).toSet
-    val currList = mdocSources_.map(cmdoc => cmdoc.path.subRelativeTo(mdocDir)).toSet
+    val cachedList =
+      cached.map(cmdoc => cmdoc.path.subRelativeTo(mdocDir)).toSet
+    val currList =
+      mdocSources_.map(cmdoc => cmdoc.path.subRelativeTo(mdocDir)).toSet
 
     cachedList.diff(currList).foreach(del => os.remove(mdoccdDir / del))
 
@@ -557,7 +603,7 @@ trait SiteModule extends ScalaModule {
       }
       if (!toProceass.isEmpty) {
 
-      val dirParams = toProceass
+        val dirParams = toProceass
           .map(_.path)
           .map { pr =>
             Seq(
@@ -569,8 +615,17 @@ trait SiteModule extends ScalaModule {
           }
           .iterator
           .flatten
-          .toSeq ++ Seq("--classpath", toArgument(cp ++ rp))
+          .toSeq ++ Seq(
+            "--classpath", toArgument(cp ++ rp)
+          ) ++ Seq(
+            "js-scalac-options", jsSiteModule.scalacOptions().mkString(" "),
+            "js-classpath", toArgument(jsSiteModule.runClasspath().map(_.path)),
+            "js-linker-classpath", toArgument(jsSiteModule.mdocJSLinkerClasspath()),
+            "js-libraries", "",
+            "js-module-kind", "NoModule"
+          )
 
+        println(dirParams)
         mill.util.Jvm.runSubprocess(
           mainClass = "mdoc.Main",
           classPath = rp,
