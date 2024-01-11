@@ -35,17 +35,23 @@ trait SiteJSModule extends ScalaJSModule {
   def mdocJSDependency = T.task {
     val mdocV = scalaMdocVersion()
     artifactScalaVersion() match {
-      case "3"   => Agg(ivy"org.scalameta:mdoc-js-worker_3:$mdocV")
+      case "3"   => Agg(ivy"org.scalameta:mdoc-js-worker_2.13:$mdocV")
       case other => Agg(ivy"org.scalameta:mdoc-js-worker_$other:$mdocV")
     }
   }
 
+  override def scalacOptions: Target[Seq[String]] = super.scalacOptions() ++ Seq(
+    "-Xplugin:scalajs-compiler_2.13.12.jar"
+  )
+
+  override def scalacPluginIvyDeps = super.scalacPluginIvyDeps() ++ Agg(ivy"org.scala-js:scalajs-compiler_2.13.12:1.14.0")
+
   def mdocDep: T[Agg[Dep]] = T(
     Agg(
-      ivy"org.scalameta::mdoc-js:${scalaMdocVersion()}"
-        .exclude("org.scala-lang" -> "scala3-compiler_3")
-        .exclude("org.scala-lang" -> "scala3-library_3"),
-      ivy"org.scala-lang::scala3-compiler:${scalaVersion()}"
+      ivy"org.scalameta:mdoc-js_2.13:${scalaMdocVersion()}",
+      ivy"org.scala-lang:scala-compiler:2.13.12",
+      ivy"org.scala-js:scalajs-dom_sjs1_2.13:2.8.0",
+      ivy"org.scalameta:mdoc-js-worker_2.13:$scalaMdocVersion()"
     )
   )
 
@@ -631,23 +637,26 @@ trait SiteModule extends ScalaModule {
           .iterator
           .flatten
           .toSeq ++ Seq(
-            "--classpath", toArgument(cp ++ rp)
+            // "--classpath", toArgument
           ) ++ Seq(
-            "js-scalac-options", jsSiteModule.scalacOptions().mkString(" "),
-            "js-classpath", toArgument(jsSiteModule.runClasspath().map(_.path)),
-            "js-linker-classpath", toArgument(jsSiteModule.mdocJSLinkerClasspath()),
-            "js-libraries", "",
-            "js-module-kind", "NoModule"
+            "js-scalac-options", "-Xplugin:/Users/simon/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-js/scalajs-compiler_2.13.12/1.14.0/scalajs-compiler_2.13.12-1.14.0.jar",
+            "js-classpath", toArgument((jsSiteModule.compileClasspath() ++ jsSiteModule.mDocLibs()).map(_.path)) ,
+            "js-linker-classpath", toArgument(jsSiteModule.mdocJSLinkerClasspath())
           )
 
         println(dirParams)
         mill.util.Jvm.runSubprocess(
           mainClass = "mdoc.Main",
-          classPath = rp,
-          jvmArgs = forkArgs(),
-          envArgs = forkEnv(),
-          dirParams,
-          workingDir = forkWorkingDir(),
+          classPath = (jsSiteModule.compileClasspath() ++ jsSiteModule.mDocLibs()).map(_.path),
+          jvmArgs = jsSiteModule.forkArgs() ,
+          envArgs = Map(
+            "--extra-jars" -> "/Users/simon/Code/mill_scala3_mdoc_site/mdtest",
+            "js-scalac-options" -> "-Xplugin:/Users/simon/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-js/scalajs-compiler_2.13.12/1.14.0/scalajs-compiler_2.13.12-1.14.0.jar",
+            "js-classpath" -> toArgument((jsSiteModule.compileClasspath() ++ jsSiteModule.mDocLibs()).map(_.path)) ,
+            "js-linker-classpath" -> toArgument(jsSiteModule.mdocJSLinkerClasspath())
+          ),
+          Seq(),
+          workingDir = jsSiteModule.forkWorkingDir(),
           useCpPassingJar = true
         ) // classpath can be long. On windows will barf without passing as Jar
         os.write.over(cacheFile, upickle.default.write(mdocSources_))
