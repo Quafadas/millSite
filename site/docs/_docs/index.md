@@ -49,8 +49,29 @@ $ mill -w site.live
 ```
 Will re generate the site every time you save an edit to a doc file. This task, performs an absurd dance, to ensure incremental (fast) updates, enabling "live reload".
 
+### Website Dev
+Abbreviated task heirachy.
+
+<pre class="mermaid">
+flowchart TD
+    *.mdoc.md --> mdoc
+    *.md --> site.docOnlyGen
+    mdoc --> site.docOnlyGen
+    *.scala --> site.apiOnlyGen
+    site.docOnlyGen --> site.live
+    site.apiOnlyGen --> site.live
+</pre>
+
 See [configuration](configuration.md#live-reload) for more details on getting a good live reload experience.
 
+### Publish
+
+Relies on mills built in (and better tested!) `docJar` task.
+
+<pre class="mermaid">
+flowchart TD
+    docJar --> site.publishDocs
+</pre>
 
 ## Motivation
 
@@ -107,3 +128,5 @@ $ mill site.live
 Publishes _incremental_ content updates by relying on [apiGenOnly](#apigenonly) and [docGenOnly](#docgenonly) to enable live reload.
 
 Downside : links to the API, can't work by construction. They'll look broken here, but the upside is an otherwise great editing experience.
+
+<script type="module">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';</script>

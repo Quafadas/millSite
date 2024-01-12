@@ -57,5 +57,6 @@ Some jiggery monkery was required to get new github actions pages to publish cor
 - [x] Github pages
 - [x] project version
 - [x] mdoc caching
+- [x] mermaid
 - [ ] mdoc JS
 - [ ] cross platform API?
