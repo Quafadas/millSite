@@ -75,7 +75,7 @@ flowchart TD
 
 ## Motivation
 
-IMHO, scaladoc is a beautiful paradox.
+IMHO, scaladoc is a beautiful paradox, it does everything I want... but too slowly!
 
 This plugin sets out 4 different ways to generate scaladoc, depending on your use case.
 
