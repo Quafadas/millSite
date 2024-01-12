@@ -35,31 +35,6 @@ https://github.com/hmf/mdocMill
 
 Mdoc itself can be a bit slow. So we take advantage of mill's potential for incremental, persistent caching. Incremental editing, is very fast.
 
-## Mermaid !TODO!
-
-Hopefully via mdoc's scalaJS integration
-
-https://mermaid.js.org
-
-Woudl be cool. Doesn't work right now, and likely beyond my ability to influence.
-
-```mermaid
-  graph TD;
-      A-->B;
-      A-->C;
-      B-->D;
-      C-->D;
-```
-
-<pre class="mermaid">
-    graph LR
-    A --> B
-    B---C[fa:fa-ban forbidden]
-    B---D(fa:fa-spinner);
-</pre>
-
-<script type="module">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';</script>
-
 ## Complexity
 
 There is a simple version of this plugin, built right into mill itself. Just run `docJar`. However for a non-trivially sized API, it's slow. Like... suuuuuuuuper slow, even on incremental change, because it always re-generates the whole API doc.
