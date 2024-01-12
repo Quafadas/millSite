@@ -58,9 +58,7 @@ Woudl be cool. Doesn't work right now, and likely beyond my ability to influence
     B---D(fa:fa-spinner);
 </pre>
 
-<script type="module">
-  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
-</script>
+<script type="module">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';</script>
 
 ## Complexity
 
