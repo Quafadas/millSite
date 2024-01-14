@@ -1,0 +1,1 @@
+{"name":"mill-bsp","argv":["/Users/simon/Code/mill_scala3_mdoc_site/.metals/millw","--bsp","--disable-ticker","--color","false","--jobs","1"],"millVersion":"0.11.5","bspVersion":"2.1.0-M7","languages":["scala","java"]}
