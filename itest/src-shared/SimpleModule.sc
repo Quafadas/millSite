@@ -9,7 +9,7 @@ trait SimpleModule extends ScalaModule with PublishModule {
   override def pomSettings = PomSettings(
     "iTest.desc",
     "iTest.org",
-    "iTest.url",
+    "https://github/fake/iTest.url",
     Seq(License.`Apache-2.0`),
     VersionControl.github("testOwner","testProject"),
     Seq()

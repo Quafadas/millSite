@@ -121,6 +121,7 @@ trait SiteModule extends ScalaModule {
   override def scalaDocOptions = T {
 
     val fromPublishSettings = findPomSettings().map { ps =>
+      val proj = ps.url.split("/").last
       val allModules = artefactNames()
         .map(mod =>
           s""" "${ps.organization}" %% "${mod}" % "${latestVersion()}" """
@@ -143,14 +144,13 @@ trait SiteModule extends ScalaModule {
       if (artefactNames().isEmpty) {
         slink
       } else
-        Seq("-scastie-configuration", allModules) ++ slink
+      Seq("-scastie-configuration", allModules) ++ slink ++ Seq("-project", proj)
     }
-    super.scalaDocOptions() ++
-      Seq[String](
-        "-snippet-compiler:compile",
-        "-project-version",
-        latestVersion()
-      ) ++ fromPublishSettings.getOrElse(Seq.empty[String])
+    Seq[String](
+      "-snippet-compiler:compile",
+      "-project-version",
+      latestVersion()
+    ) ++ fromPublishSettings.getOrElse(Seq.empty[String])
 
   }
 

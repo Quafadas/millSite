@@ -67,6 +67,7 @@ def verify() = T.command {
   assert(site.scalaDocOptions().contains("-snippet-compiler:compile"))
   assert(site.scalaDocOptions().contains("-project-version"))
   assert(site.scalaDocOptions().contains("-social-links:github::iTest.url"))
+  assert(site.scalaDocOptions().sliding(2).contains(Seq("-project", "iTest.url")))
   // assert(site.scalaDocOptions().contains(s"-source-links:github://testOwner/testProject"))
   assert(
     site
