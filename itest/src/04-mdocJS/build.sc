@@ -24,6 +24,12 @@ def verify() = T.command {
   val mdocProps = simpleJs.mdocJsProperties()
   // println(os.read(mdocProps.path / "mdoc.properties"))
   assert(os.exists(mdocProps.path / "mdoc.properties"))
+  val mdocProperties = os.read(mdocProps.path / "mdoc.properties")
+  assert(mdocProperties.contains("""js-out-prefix=_assets/js"""))
+  assert(mdocProperties.contains("""js-scalac-options"""))
+  assert(mdocProperties.contains("""js-linker-classpath"""))
+  assert(mdocProperties.contains("""js-classpath"""))
+  assert(mdocProperties.contains("""js-module-kind=NoModule"""))
 
   val mdocOut = withJsProject.mdoc().path
   assert(os.exists(mdocOut / "_docs" / "some.mdoc.md"))
@@ -31,4 +37,9 @@ def verify() = T.command {
   assert(os.exists(mdocOut / "_docs"/ "_assets" / "js" / "mdoc.js"))
 
   val site = withJsProject.live()
+  assert(os.exists(site / "docs" / "some.mdoc.html"))
+  assert(os.read(site / "docs" / "some.mdoc.html").contains("""src="../js/mdoc.js""") )
+  assert(os.exists(site / "js" / "some.mdoc.md.js"))
+  assert(os.exists(site / "js" / "mdoc.js"))
+
 }

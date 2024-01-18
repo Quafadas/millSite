@@ -291,13 +291,34 @@ trait SiteModule extends ScalaModule {
           )
         }
       }
+
+
+      val jsdir = docdir.base.path / "js"
+      println(jsdir)
+      if (os.exists(jsdir)) {
+        os.copy.over(
+          jsdir,
+          siteDir / "js"
+        )
+      }
+
       os.write.over(docCacheFile, upickle.default.write(docdir))
       siteDir
     }
 
+    /**
+      * Filthy. String replace stuff to get the paths right.
+      *
+      * Assumes that the mdoc properties file has this in.
+      * "js-out-prefix" -> "_assets/js"
+      *
+      * @param docFile
+      */
   private def fixAssets(docFile: os.Path) = {
     if (docFile.ext == "md") {
-      val fixyFixy = os.read(docFile).replace("../_assets/", "")
+      val fixyFixy = os.read(docFile)
+        .replace("../_assets/", "") // Fix pictures etc
+        .replace("""src="_assets/js/""", """src="../js/""") // fix mdoc JS links
       os.write.over(docFile, fixyFixy.getBytes())
     }
   }

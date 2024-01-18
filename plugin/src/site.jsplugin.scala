@@ -61,6 +61,7 @@ trait SiteJSModule extends ScalaJSModule {
       "js-scalac-options" -> jsScalacOptions,
       "js-linker-classpath" -> toArgument(linkerLibs().map(_.path)),
       "js-classpath" -> toArgument(runClasspath().map(_.path)),
+      "js-module-kind" -> "NoModule",
       "js-out-prefix" -> "_assets/js"
     )
     os.write(
