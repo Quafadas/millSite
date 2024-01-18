@@ -14,67 +14,11 @@ import mill.scalalib.publish.PomSettings
 import mill.scalalib.publish.License
 import mill.scalalib.publish.VersionControl
 import os.SubPath
-
-trait SiteJSModule extends ScalaJSModule {
-
-  def scalaMdocVersion: T[String] = T("2.5.1")
-
-  protected def linkerDependency = T.task {
-    val sjs = scalaJSVersion()
-    artifactScalaVersion() match {
-      case "3"   => Agg(ivy"org.scala-js:scalajs-linker_2.13:$sjs")
-      case other => Agg(ivy"org.scala-js:scalajs-linker_$other:$sjs")
-    }
-  }
-
-  protected def linkerDepBound: T[Agg[BoundDep]] =
-    linkerDependency().map(Lib.depToBoundDep(_, scalaVersion()))
-
-  def linkerLibs = T { resolveDeps(linkerDepBound) }
-
-  def mdocJSDependency = T.task {
-    val mdocV = scalaMdocVersion()
-    artifactScalaVersion() match {
-      case "3"   => Agg(ivy"org.scalameta:mdoc-js-worker_2.13:$mdocV")
-      case other => Agg(ivy"org.scalameta:mdoc-js-worker_$other:$mdocV")
-    }
-  }
-
-  override def scalacOptions: Target[Seq[String]] = super.scalacOptions() ++ Seq(
-    "-Xplugin:scalajs-compiler_2.13.12.jar"
-  )
-
-  override def scalacPluginIvyDeps = super.scalacPluginIvyDeps() ++ Agg(ivy"org.scala-js:scalajs-compiler_2.13.12:1.14.0")
-
-  def mdocDep: T[Agg[Dep]] = T(
-    Agg(
-      ivy"org.scalameta:mdoc-js_2.13:${scalaMdocVersion()}",
-      ivy"org.scala-lang:scala-compiler:2.13.12",
-      ivy"org.scala-js:scalajs-dom_sjs1_2.13:2.8.0",
-      ivy"org.scalameta:mdoc-js-worker_2.13:$scalaMdocVersion()"
-    )
-  )
-
-  def mdocDepBound: T[Agg[BoundDep]] =
-    mdocDep().map(Lib.depToBoundDep(_, scalaVersion()))
-
-  def mDocLibs = T { resolveDeps(mdocDepBound) }
-
-
-  protected def mdocJsDepBound: T[Agg[BoundDep]] =
-    mdocJSDependency().map(Lib.depToBoundDep(_, scalaVersion()))
-
-  def mdocJsLibs = T { resolveDeps(mdocJsDepBound) }
-
-  def mdocJSLinkerClasspath = T{(mdocJsLibs() ++ linkerLibs()).map(_.path)}
-
-  override def ivyDeps: T[Agg[Dep]] = super.ivyDeps()
-
-}
+import ClasspathHelp._
 
 trait SiteModule extends ScalaModule {
 
-  def jsSiteModule: SiteJSModule =
+  val jsSiteModule: SiteJSModule =
     new SiteJSModule {
       override def scalaVersion: T[String] = "3.3.1"
       override def scalaJSVersion: T[String] = "1.14.0"
@@ -128,10 +72,15 @@ trait SiteModule extends ScalaModule {
 
   def mdocDep: T[Agg[Dep]] = T(
     Agg(
+      ivy"org.scalameta::mdoc-js:${scalaMdocVersion()}",
       ivy"org.scalameta::mdoc:${scalaMdocVersion()}"
         .exclude("org.scala-lang" -> "scala3-compiler_3")
         .exclude("org.scala-lang" -> "scala3-library_3"),
-      ivy"org.scala-lang::scala3-compiler:${scalaVersion()}"
+      ivy"org.scala-lang::scala3-compiler:${scalaVersion()}",
+      ivy"org.scala-lang::scala3-library:${scalaVersion()}",
+      ivy"org.scala-lang::tasty-core:${scalaVersion()}",
+      ivy"org.scala-lang.modules::scala-xml:2.1.0",
+
     )
   )
 
@@ -211,11 +160,12 @@ trait SiteModule extends ScalaModule {
       } else
       Seq("-scastie-configuration", allModules) ++ slink ++ Seq("-project", proj)
     }
-    Seq[String](
-      "-snippet-compiler:compile",
-      "-project-version",
-      latestVersion()
-    ) ++ fromPublishSettings.getOrElse(Seq.empty[String])
+    super.scalaDocOptions() ++
+      Seq[String](
+        "-snippet-compiler:compile",
+        "-project-version",
+        latestVersion()
+      ) ++ fromPublishSettings.getOrElse(Seq.empty[String])
 
   }
 
@@ -364,10 +314,19 @@ trait SiteModule extends ScalaModule {
 
     for {
       aDoc <- os.walk(md).filter(os.isFile)
-      rel = (combinedStaticDir / aDoc.subRelativeTo(md))
     } {
-      os.copy.over(aDoc, rel, createFolders = true)
-      fixAssets(rel) // pure filth, report as bug?
+      // println(aDoc.ext)
+      aDoc.ext match {
+        case "md" =>
+          val rel = (combinedStaticDir / aDoc.subRelativeTo(md))
+          os.copy.over(aDoc, rel, createFolders = true)
+          fixAssets(rel) // pure filth, report as bug?
+        // This deals with mdoc JS integration
+        case "js" =>
+          val name = aDoc.toIO.getName()
+          // println(name)
+          os.copy.over(aDoc, combinedStaticDir / "_assets" / "js" / name, createFolders = true)
+      }
     }
 
     // copy all other doc files
@@ -580,10 +539,6 @@ trait SiteModule extends ScalaModule {
       uses: actions/deploy-pages@v3
 """
 
-  private val separator: Char = java.io.File.pathSeparatorChar
-  private def toArgument(p: Agg[os.Path]): String =
-    p.iterator.mkString(s"$separator")
-
   // This is the source directory, of the entire site.
   def siteSources: T[Seq[PathRef]] = T.sources { super.millSourcePath / "docs" }
 
@@ -602,29 +557,28 @@ trait SiteModule extends ScalaModule {
     if (!os.exists(cacheDir)) os.makeDir.all(cacheDir)
     if (!os.exists(mdoccdDir)) os.makeDir.all(mdoccdDir)
     if (!os.exists(cacheFile)) os.write(cacheFile, "[]")
+
     val cp = runClasspath().map(_.path)
-    val rp = jsSiteModule.mDocLibs().map(_.path)
+    val rp = mDocLibs().map(_.path)
     val dir = T.dest.toIO.getAbsolutePath
     val mdocSources_ = mdocSources().filter(pr => os.isFile(pr.path))
     val cached = upickle.default.read[Seq[PathRef]](os.read(cacheFile))
 
-    val cachedList =
-      cached.map(cmdoc => cmdoc.path.subRelativeTo(mdocDir)).toSet
-    val currList =
-      mdocSources_.map(cmdoc => cmdoc.path.subRelativeTo(mdocDir)).toSet
+    val cachedList = cached.map(cmdoc => cmdoc.path.subRelativeTo(mdocDir)).toSet
+    val currList = mdocSources_.map(cmdoc => cmdoc.path.subRelativeTo(mdocDir)).toSet
 
     cachedList.diff(currList).foreach(del => os.remove(mdoccdDir / del))
 
     if (!mdocSources_.isEmpty) {
 
       val checkCache = mdocSources_.map(_.sig).diff(cached.map(_.sig))
-      println(checkCache)
+      // println(checkCache)
       val toProceass = mdocSources_.filter { pr =>
         checkCache.contains(pr.sig)
       }
       if (!toProceass.isEmpty) {
 
-        val dirParams = toProceass
+      val dirParams = toProceass
           .map(_.path)
           .map { pr =>
             Seq(
@@ -636,27 +590,16 @@ trait SiteModule extends ScalaModule {
           }
           .iterator
           .flatten
-          .toSeq ++ Seq(
-            // "--classpath", toArgument
-          ) ++ Seq(
-            "js-scalac-options", "-Xplugin:/Users/simon/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-js/scalajs-compiler_2.13.12/1.14.0/scalajs-compiler_2.13.12-1.14.0.jar",
-            "js-classpath", toArgument((jsSiteModule.compileClasspath() ++ jsSiteModule.mDocLibs()).map(_.path)) ,
-            "js-linker-classpath", toArgument(jsSiteModule.mdocJSLinkerClasspath())
-          )
+          .toSeq ++ Seq("--classpath", toArgument(cp ++ rp ))
+          // Seq("--js-classpath", jsSiteModule.jsclasspath() )
 
-        println(dirParams)
         mill.util.Jvm.runSubprocess(
           mainClass = "mdoc.Main",
-          classPath = (jsSiteModule.compileClasspath() ++ jsSiteModule.mDocLibs()).map(_.path),
-          jvmArgs = jsSiteModule.forkArgs() ,
-          envArgs = Map(
-            "--extra-jars" -> "/Users/simon/Code/mill_scala3_mdoc_site/mdtest",
-            "js-scalac-options" -> "-Xplugin:/Users/simon/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-js/scalajs-compiler_2.13.12/1.14.0/scalajs-compiler_2.13.12-1.14.0.jar",
-            "js-classpath" -> toArgument((jsSiteModule.compileClasspath() ++ jsSiteModule.mDocLibs()).map(_.path)) ,
-            "js-linker-classpath" -> toArgument(jsSiteModule.mdocJSLinkerClasspath())
-          ),
-          Seq(),
-          workingDir = jsSiteModule.forkWorkingDir(),
+          classPath = rp ++ Seq(jsSiteModule.mdocJsProperties().path),
+          jvmArgs = forkArgs(),
+          envArgs = forkEnv(),
+          dirParams,
+          workingDir = forkWorkingDir(),
           useCpPassingJar = true
         ) // classpath can be long. On windows will barf without passing as Jar
         os.write.over(cacheFile, upickle.default.write(mdocSources_))
