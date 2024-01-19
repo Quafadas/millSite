@@ -459,6 +459,7 @@ module.exports = {
   def publishDocs = T {
     val toPublish = docJar().path / os.up / "javadoc"
     os.copy(toPublish, T.dest, createFolders = true, replaceExisting = true)
+
     PathRef(T.dest)
   }
 
@@ -676,6 +677,10 @@ module.exports = {
         ) // classpath can be long. On windows will barf without passing as Jar
         os.write.over(cacheFile, upickle.default.write(mdocSources_))
       }
+    }
+
+    if (os.exists(mdoccdDir / "_docs" / "_assets")) {
+      os.move(mdoccdDir / "_docs" / "_assets", mdoccdDir / "_assets", replaceExisting = true, createFolders = true)
     }
 
     PathRef(mdoccdDir)
