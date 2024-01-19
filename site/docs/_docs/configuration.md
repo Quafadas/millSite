@@ -47,9 +47,9 @@ object site extends SiteModule {
   def moduleDeps = Seq(foo)
 }
 ```
-In a terminal, `mill show site.siteGen` will generate a static site, including API for `foo`.
+In a terminal, `mill site.live` will generate a static site, including API for `foo`.
 
-Serve the site at the path of this directory in a static webserver, to view your shiny new doc site. For example, using javas SimpleHttpServer (java 18+)
+On option is to serve the site at the path of this directory, for example using a static webserver. For example, using javas SimpleHttpServer (java 18+)
 ```$JAVA_HOME/bin/jwebserver -d [[output of mill show site.siteGen]]```
 
 Pro tip - use the -w flag, `mill -w site.live` to regenerate when you save a change to docs**...
@@ -59,7 +59,13 @@ Pro tip - use the -w flag, `mill -w site.live` to regenerate when you save a cha
 #### Live reload
 Live reload without interacting with the browser is a function of the webserver you use. In VSCode, the [Live Server Extension](https://marketplace.visualstudio.com/items?itemName=ritwickdey.LiveServer) may be worth investigating.
 
-Otherwise consider something like [browsersync](https://www.browsersync.io/)
+This plugin assumes you're willing to use and builds a little integration with [browsersync](https://www.browsersync.io/).
+
+Install with `npm install -g browser-sync`
+
+`mill site.browserSync` will start a server and open a browser. Any changes to the site will trigger a reload.
+
+Note: You'll sacrifice your terminal to this process - it is recommended to open a second terminal, which runs `mill -w site.live` to enjoy live reloading on edit.
 
 ### `def scalaMdocVersion: T[String] = T("2.5.1")`
 
