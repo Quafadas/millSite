@@ -258,7 +258,6 @@ module.exports = {
       if (!os.exists(assetCacheFile)) createAssetCache
       if (!os.exists(docCacheFile)) createDocCache
 
-      // os.walk(cacheDir).foreach(println)
       // API ------
       val priorApiHash = os.read(apiCacheFile)
       val apiHash = apidir.sig
@@ -333,12 +332,9 @@ module.exports = {
       }
 
       val updatedJsDir = docdir.base.path / "js"
-      // println(jsdir)
       if (os.exists(updatedJsDir)) {
         val updatedJsDir_pr = PathRef(updatedJsDir, false)
-        println(updatedJsDir_pr.sig.toString())
         val currentJsSources = PathRef(siteDir / "js", false)
-        println(os.read(jsCacheFile))
         if (!(os.read(jsCacheFile) == updatedJsDir_pr.sig.toString() )) {
           println("copy op")
           println(updatedJsDir)

@@ -84,11 +84,19 @@ def verify() = T.command {
 
   // That "final publishing" is not obviously borked.
   val toPublish = site.publishDocs().path
-  println(toPublish)
+  // println(toPublish)
   assert(
     os.read(toPublish / "docs" / "some.mdoc.html")
       .contains("""src="../images/recomend.png""")
   )
+
+  val browserSyncConfig = site.browserSyncConfig().path
+  val conf : String = os.read(browserSyncConfig)
+  assert(conf.contains(siteGen.toString()))
+  assert(conf.contains(s"""files": ["$siteGen"]"""))
+  assert(conf.contains(s"""serveStatic": ["$siteGen"]"""))
+  assert(conf.contains(s"""watch": true"""))
+  assert(conf.contains(s""""server": true,"""))
 
   // That "incremental updates" work as expected
   // val preEdit1 = os.stat(siteGen / "docs" / "some.mdoc.html")
