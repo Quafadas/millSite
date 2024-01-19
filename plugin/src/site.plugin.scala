@@ -79,8 +79,7 @@ trait SiteModule extends ScalaModule {
       ivy"org.scala-lang::scala3-compiler:${scalaVersion()}",
       ivy"org.scala-lang::scala3-library:${scalaVersion()}",
       ivy"org.scala-lang::tasty-core:${scalaVersion()}",
-      ivy"org.scala-lang.modules::scala-xml:2.1.0",
-
+      ivy"org.scala-lang.modules::scala-xml:2.1.0"
     )
   )
 
@@ -158,7 +157,10 @@ trait SiteModule extends ScalaModule {
       if (artefactNames().isEmpty) {
         slink
       } else
-      Seq("-scastie-configuration", allModules) ++ slink ++ Seq("-project", proj)
+        Seq("-scastie-configuration", allModules) ++ slink ++ Seq(
+          "-project",
+          proj
+        )
     }
     super.scalaDocOptions() ++
       Seq[String](
@@ -198,6 +200,7 @@ trait SiteModule extends ScalaModule {
       val siteDir = T.dest / "site"
       if (!os.exists(cacheDir)) os.makeDir.all(cacheDir)
       val apiCacheFile = cacheDir / "cache.txt"
+      val jsCacheFile = cacheDir / "jsCache.txt"
       val assetCacheFile = cacheDir / "asset.txt"
       val docCacheFile = cacheDir / "docCache.json"
 
@@ -210,6 +213,7 @@ trait SiteModule extends ScalaModule {
       def createAssetCache = os.write.over(assetCacheFile, Array.empty[Byte])
 
       if (!os.exists(apiCacheFile)) os.write(apiCacheFile, Array.empty[Byte])
+      if (!os.exists(jsCacheFile)) os.write.over(jsCacheFile, Array.empty[Byte])
       if (!os.exists(assetCacheFile)) createAssetCache
       if (!os.exists(docCacheFile)) createDocCache
 
@@ -275,48 +279,47 @@ trait SiteModule extends ScalaModule {
         os.write.over(siteDir / path, os.read(aDoc.path).getBytes())
       }
 
-      // println(currDocsRelPaths)
-      // println(priorDocsRelPaths)
-      // println(toWrite)
-
-      // overwrite assets if they changed
       if (os.exists(assetDir)) {
         if (!(os.read(assetCacheFile) == assetDirSource.sig.toString())) {
-          os.write.over(assetCacheFile, assetDirSource.sig.toString())
           os.copy(
             assetDir,
             siteDir,
             mergeFolders = true,
             replaceExisting = true
           )
+          os.write.over(assetCacheFile, assetDirSource.sig.toString())
         }
       }
 
-
-      val jsdir = docdir.base.path / "js"
-      println(jsdir)
-      if (os.exists(jsdir)) {
-        os.copy.over(
-          jsdir,
-          siteDir / "js"
-        )
+      val updatedJsDir = docdir.base.path / "js"
+      val updatedJsDir_pr = PathRef(updatedJsDir)
+      val currentJsSources = PathRef(siteDir / "js")
+      // println(jsdir)
+      if (os.exists(updatedJsDir)) {
+        if (!(os.read(jsCacheFile) == currentJsSources.sig.toString() )) {
+          os.copy.over(
+            updatedJsDir,
+            currentJsSources.path
+          )
+          os.write.over(jsCacheFile, updatedJsDir_pr.sig.toString())
+        }
       }
 
       os.write.over(docCacheFile, upickle.default.write(docdir))
       siteDir
     }
 
-    /**
-      * Filthy. String replace stuff to get the paths right.
-      *
-      * Assumes that the mdoc properties file has this in.
-      * "js-out-prefix" -> "_assets/js"
-      *
-      * @param docFile
-      */
+  /** Filthy. String replace stuff to get the paths right.
+    *
+    * Assumes that the mdoc properties file has this in. "js-out-prefix" ->
+    * "_assets/js"
+    *
+    * @param docFile
+    */
   private def fixAssets(docFile: os.Path) = {
     if (docFile.ext == "md") {
-      val fixyFixy = os.read(docFile)
+      val fixyFixy = os
+        .read(docFile)
         .replace("../_assets/", "") // Fix pictures etc
         .replace("""src="_assets/js/""", """src="../js/""") // fix mdoc JS links
       os.write.over(docFile, fixyFixy.getBytes())
@@ -346,7 +349,11 @@ trait SiteModule extends ScalaModule {
         case "js" =>
           val name = aDoc.toIO.getName()
           // println(name)
-          os.copy.over(aDoc, combinedStaticDir / "_assets" / "js" / name, createFolders = true)
+          os.copy.over(
+            aDoc,
+            combinedStaticDir / "_assets" / "js" / name,
+            createFolders = true
+          )
       }
     }
 
@@ -585,8 +592,10 @@ trait SiteModule extends ScalaModule {
     val mdocSources_ = mdocSources().filter(pr => os.isFile(pr.path))
     val cached = upickle.default.read[Seq[PathRef]](os.read(cacheFile))
 
-    val cachedList = cached.map(cmdoc => cmdoc.path.subRelativeTo(mdocDir)).toSet
-    val currList = mdocSources_.map(cmdoc => cmdoc.path.subRelativeTo(mdocDir)).toSet
+    val cachedList =
+      cached.map(cmdoc => cmdoc.path.subRelativeTo(mdocDir)).toSet
+    val currList =
+      mdocSources_.map(cmdoc => cmdoc.path.subRelativeTo(mdocDir)).toSet
 
     cachedList.diff(currList).foreach(del => os.remove(mdoccdDir / del))
 
@@ -599,7 +608,7 @@ trait SiteModule extends ScalaModule {
       }
       if (!toProceass.isEmpty) {
 
-      val dirParams = toProceass
+        val dirParams = toProceass
           .map(_.path)
           .map { pr =>
             Seq(
@@ -611,8 +620,8 @@ trait SiteModule extends ScalaModule {
           }
           .iterator
           .flatten
-          .toSeq ++ Seq("--classpath", toArgument(cp ++ rp ))
-          // Seq("--js-classpath", jsSiteModule.jsclasspath() )
+          .toSeq ++ Seq("--classpath", toArgument(cp ++ rp))
+        // Seq("--js-classpath", jsSiteModule.jsclasspath() )
 
         mill.util.Jvm.runSubprocess(
           mainClass = "mdoc.Main",
