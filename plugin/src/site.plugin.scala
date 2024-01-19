@@ -83,6 +83,47 @@ trait SiteModule extends ScalaModule {
     )
   )
 
+  def browserSync() = T.command{
+    val conf = browserSyncConfig()
+    os.proc("browser-sync", "start", "--config", conf.path).call(
+      cwd = super.millSourcePath,
+      stdin = os.Inherit,
+      stdout = os.Inherit,
+      stderr = os.Inherit,
+    )
+    "Finished browser-sync"
+  }
+
+  def browserSyncConfig : T[PathRef] = T{
+    val site = live()
+    val file = T.dest/ "bs-config.js"
+    os.write(T.dest/ "bs-config.js" ,s"""
+/*
+ |--------------------------------------------------------------------------
+ | Browser-sync config file
+ |--------------------------------------------------------------------------
+ |
+ | For up-to-date information about the options:
+ |   http://www.browsersync.io/docs/options/
+ |
+ | There are more options than you see here, these are just the ones that are
+ | set internally. See the website for more info.
+ |
+ |
+ */
+module.exports = {
+    "files": ["$site"],
+    "serveStatic": ["$site"],
+    "watchEvents": [
+        "change"
+    ],
+    "watch": true,
+    "server": true,
+};
+""")
+  PathRef(file)
+  }
+
   def mdocDepBound: T[Agg[BoundDep]] =
     mdocDep().map(Lib.depToBoundDep(_, scalaVersion()))
 
@@ -292,11 +333,16 @@ trait SiteModule extends ScalaModule {
       }
 
       val updatedJsDir = docdir.base.path / "js"
-      val updatedJsDir_pr = PathRef(updatedJsDir)
-      val currentJsSources = PathRef(siteDir / "js")
       // println(jsdir)
       if (os.exists(updatedJsDir)) {
-        if (!(os.read(jsCacheFile) == currentJsSources.sig.toString() )) {
+        val updatedJsDir_pr = PathRef(updatedJsDir, false)
+        println(updatedJsDir_pr.sig.toString())
+        val currentJsSources = PathRef(siteDir / "js", false)
+        println(os.read(jsCacheFile))
+        if (!(os.read(jsCacheFile) == updatedJsDir_pr.sig.toString() )) {
+          println("copy op")
+          println(updatedJsDir)
+          println(currentJsSources.path)
           os.copy.over(
             updatedJsDir,
             currentJsSources.path
