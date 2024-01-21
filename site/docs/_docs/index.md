@@ -40,14 +40,27 @@ After which , one can serve the static there using javas SimpleHttpServer (java 
 $JAVA_HOME/bin/jwebserver -d [[output of mill show site.publishDocs]]
 ```
 
-So far, so good. But slow.
+So far, so good. But slow. Sluggish, and sluglike.
 
 ## Live reload
 
+Setup, install [browser-sync](https://www.browsersync.io/)
+
+```console
+npm install -g browser-sync
+```
+Then,
+
+In terminal 1.
 ```console
 $ mill -w site.live
 ```
-Will re generate the site every time you save an edit to a doc file. This task, performs an absurd dance, to ensure incremental (fast) updates, enabling "live reload".
+And in terminal 2.
+```console
+$ mill site.browserSync
+```
+
+Will re-generate the site and reload the browser every time you save an edit to a doc file.
 
 ### Website Dev
 Abbreviated task heirachy.
