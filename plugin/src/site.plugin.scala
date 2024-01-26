@@ -96,8 +96,8 @@ trait SiteModule extends ScalaModule {
 
   def browserSyncConfig : T[PathRef] = T{
     val site = live()
-    val file = T.dest/ "bs-config.js"
-    os.write(T.dest/ "bs-config.js" ,s"""
+    val file = T.dest/ "bs-config.cjs"
+    os.write(file ,s"""
 /*
  |--------------------------------------------------------------------------
  | Browser-sync config file
