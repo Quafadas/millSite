@@ -18,7 +18,7 @@ object plugin extends ScalaModule with PublishModule {
 
   def millPlatform: T[String] = "0.11"
 
-  def millVersion: T[String] = "0.11.8"
+  def millVersion: T[String] = "0.11.7"
 
   def scalaVersion: T[String] = "2.13.12"
 
@@ -55,21 +55,14 @@ object plugin extends ScalaModule with PublishModule {
   }
 }
 
-object itest extends MillIntegrationTestModule {
+object itest extends Cross[itest]("0.11.7", "0.11.8")
+trait itest extends Cross.Module[String] with MillIntegrationTestModule {
 
-  def millTestVersion = plugin.millVersion()
+  def millTestVersion = crossValue
 
   def pluginsUnderTest = Seq(plugin)
 
 }
-
-// object itest extends MillIntegrationTestModule {
-
-//   def millTestVersion = plugin.millVersion()
-
-//   def pluginsUnderTest = Seq(plugin)
-
-// }
 
 object site extends ScalaModule {
   def latestVersion: T[String] = T {

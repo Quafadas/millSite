@@ -25,7 +25,7 @@ jobs:
           java-version: 17
           distribution: 'temurin'
       - run: ./millw __.compile
-      - run: ./millw itest.test
+      - run: ./millw itest[__].test
       - run: ./millw __.publishLocal
 
   publish:
