@@ -56,20 +56,9 @@ object plugin extends ScalaModule with PublishModule {
 }
 
 object itest extends MillIntegrationTestModule {
-
   def millTestVersion = plugin.millVersion()
-
   def pluginsUnderTest = Seq(plugin)
-
 }
-
-// object itest extends MillIntegrationTestModule {
-
-//   def millTestVersion = plugin.millVersion()
-
-//   def pluginsUnderTest = Seq(plugin)
-
-// }
 
 object site extends ScalaModule {
   def latestVersion: T[String] = T {
