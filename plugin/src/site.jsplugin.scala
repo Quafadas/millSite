@@ -22,22 +22,22 @@ trait SiteJSModule extends ScalaJSModule {
 
   def mdocVersion: Target[String] = T { "2.5.2" }
   def domVersion: Target[String] = T { "2.8.0" }
+  def scalaJsCompilerVersion = "2.13.14"
 
   override def ivyDeps = T {
     super.ivyDeps() ++ Agg(
-      ivy"org.scala-js::scalajs-dom::${domVersion()}",
-     // ivy"org.scala-js:scalajs-library_2.13:${scalaJSVersion()}" shoudl be covered by mandatory ivyDeps
+      ivy"org.scala-js::scalajs-dom::${domVersion()}"
+      // ivy"org.scala-js:scalajs-library_2.13:${scalaJSVersion()}" shoudl be covered by mandatory ivyDeps
     ) ++ super.mandatoryIvyDeps()
   }
 
-   /**
-    * Does this do anything?
+  /** Does this do anything?
     */
 
-  override def esFeatures: T[ESFeatures] = ESFeatures.Defaults.copy(esVersion = ESVersion.ES2021)
+  override def esFeatures: T[ESFeatures] =
+    ESFeatures.Defaults.copy(esVersion = ESVersion.ES2021)
 
-  /**
-    * Replace with JSToolsClasspath???
+  /** Replace with JSToolsClasspath???
     *
     * @return
     */
@@ -54,7 +54,8 @@ trait SiteJSModule extends ScalaJSModule {
 
     val jsScalacOptions: String = artifactScalaVersion() match {
       case "3" => "-scalajs"
-      case _ => scalaJsCompilerResolved().map(_.path).map(p => s"-Xplugin:$p").head
+      case _ =>
+        scalaJsCompilerResolved().map(_.path).map(p => s"-Xplugin:$p").head
     }
 
     val mdocProps: Map[String, String] = Map(
@@ -95,7 +96,13 @@ trait SiteJSModule extends ScalaJSModule {
     artifactScalaVersion() match {
       case "3" => Agg[BoundDep]()
       case other =>
-        Agg(Lib.depToBoundDep(ivy"org.scala-js:scalajs-compiler_2.13.12:$sjs".exclude("*" -> "*"), scalaVersion()))
+        Agg(
+          Lib.depToBoundDep(
+            ivy"org.scala-js:scalajs-compiler_${scalaJsCompilerVersion}:$sjs"
+              .exclude("*" -> "*"),
+            scalaVersion()
+          )
+        )
     }
   }
 
@@ -117,7 +124,7 @@ trait SiteJSModule extends ScalaJSModule {
   }
 
   override def scalacPluginIvyDeps = super.scalacPluginIvyDeps() ++ Agg(
-    ivy"org.scala-js:scalajs-compiler_2.13.12:1.14.0"
+    ivy"org.scala-js:scalajs-compiler_${scalaJsCompilerVersion}:${scalaJSVersion()}"
   )
 
   def mdocDep: T[Agg[Dep]] = T {
