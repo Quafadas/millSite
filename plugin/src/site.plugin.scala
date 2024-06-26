@@ -20,8 +20,8 @@ trait SiteModule extends ScalaModule {
 
   val jsSiteModule: SiteJSModule =
     new SiteJSModule {
-      override def scalaVersion: T[String] = "3.3.1"
-      override def scalaJSVersion: T[String] = "1.14.0"
+      override def scalaVersion: T[String] = "3.3.3"
+      override def scalaJSVersion: T[String] = "1.16.0"
     }
 
   def latestVersion = T {
@@ -83,21 +83,24 @@ trait SiteModule extends ScalaModule {
     )
   )
 
-  def browserSync() = T.command{
+  def browserSync() = T.command {
     val conf = browserSyncConfig()
-    os.proc("browser-sync", "start", "--config", conf.path).call(
-      cwd = super.millSourcePath,
-      stdin = os.Inherit,
-      stdout = os.Inherit,
-      stderr = os.Inherit,
-    )
+    os.proc("browser-sync", "start", "--config", conf.path)
+      .call(
+        cwd = super.millSourcePath,
+        stdin = os.Inherit,
+        stdout = os.Inherit,
+        stderr = os.Inherit
+      )
     "Finished browser-sync"
   }
 
-  def browserSyncConfig : T[PathRef] = T{
+  def browserSyncConfig: T[PathRef] = T {
     val site = live()
-    val file = T.dest/ "bs-config.js"
-    os.write(T.dest/ "bs-config.js" ,s"""
+    val file = T.dest / "bs-config.js"
+    os.write(
+      T.dest / "bs-config.js",
+      s"""
 /*
  |--------------------------------------------------------------------------
  | Browser-sync config file
@@ -120,8 +123,9 @@ module.exports = {
     "watch": true,
     "server": true,
 };
-""")
-  PathRef(file)
+"""
+    )
+    PathRef(file)
   }
 
   def mdocDepBound: T[Agg[BoundDep]] =
@@ -335,7 +339,7 @@ module.exports = {
       if (os.exists(updatedJsDir)) {
         val updatedJsDir_pr = PathRef(updatedJsDir, false)
         val currentJsSources = PathRef(siteDir / "js", false)
-        if (!(os.read(jsCacheFile) == updatedJsDir_pr.sig.toString() )) {
+        if (!(os.read(jsCacheFile) == updatedJsDir_pr.sig.toString())) {
           println("copy op")
           println(updatedJsDir)
           println(currentJsSources.path)
@@ -680,7 +684,12 @@ module.exports = {
     }
 
     if (os.exists(mdoccdDir / "_docs" / "_assets")) {
-      os.move(mdoccdDir / "_docs" / "_assets", mdoccdDir / "_assets", replaceExisting = true, createFolders = true)
+      os.move(
+        mdoccdDir / "_docs" / "_assets",
+        mdoccdDir / "_assets",
+        replaceExisting = true,
+        createFolders = true
+      )
     }
 
     PathRef(mdoccdDir)

@@ -18,9 +18,9 @@ object plugin extends ScalaModule with PublishModule {
 
   def millPlatform: T[String] = "0.11"
 
-  def millVersion: T[String] = "0.11.5"
+  def millVersion: T[String] = "0.11.8"
 
-  def scalaVersion: T[String] = "2.13.12"
+  def scalaVersion: T[String] = "2.13.14"
 
   def scalaArtefactVersion: T[String] =
     scalaVersion.map(_.split("\\.").take(2).mkString("."))
@@ -47,8 +47,7 @@ object plugin extends ScalaModule with PublishModule {
       organization = "io.github.quafadas",
       url = "https://github.com/Quafadas/millSite",
       licenses = Seq(License.`Apache-2.0`),
-      versionControl =
-        VersionControl.github("quafadas", "millSite"),
+      versionControl = VersionControl.github("quafadas", "millSite"),
       developers = Seq(
         Developer("quafadas", "Simon Parten", "https://github.com/quafadas")
       )
@@ -66,7 +65,9 @@ object itest extends MillIntegrationTestModule {
 }
 
 object site extends ScalaModule {
-  def latestVersion: T[String] = T{VcsVersion.vcsState().lastTag.getOrElse("0.0.0").replace("v", "")}
+  def latestVersion: T[String] = T {
+    VcsVersion.vcsState().lastTag.getOrElse("0.0.0").replace("v", "")
+  }
 
   def scalaVersion: T[String] = "3.3.1"
 
@@ -74,10 +75,11 @@ object site extends ScalaModule {
 
   def sitePathString: T[String] = T { sitePath().toString() }
 
-  override def scalaDocOptions = T{
+  override def scalaDocOptions = T {
 
-      super.scalaDocOptions() ++ Seq(
-      "-project-version", latestVersion(),
+    super.scalaDocOptions() ++ Seq(
+      "-project-version",
+      latestVersion(),
       s"-social-links:github::${plugin.pomSettings().url}"
     )
   }

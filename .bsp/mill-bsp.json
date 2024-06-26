@@ -1,1 +1,15 @@
-{"name":"mill-bsp","argv":["/Users/simon/Code/mill_scala3_mdoc_site/.metals/millw","--bsp","--disable-ticker","--color","false","--jobs","1"],"millVersion":"0.11.5","bspVersion":"2.1.0-M7","languages":["scala","java"]}
+{
+  "name": "mill-bsp",
+  "argv": [
+    "/opt/homebrew/bin/mill",
+    "--bsp",
+    "--disable-ticker",
+    "--color",
+    "false",
+    "--jobs",
+    "0"
+  ],
+  "millVersion": "0.11.8",
+  "bspVersion": "2.2.0-M2",
+  "languages": ["scala", "java"]
+}
