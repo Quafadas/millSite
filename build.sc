@@ -20,7 +20,7 @@ object plugin extends ScalaModule with PublishModule {
 
   def millVersion: T[String] = "0.11.8"
 
-  def scalaVersion: T[String] = "2.13.14"
+  def scalaVersion: T[String] = "2.13.12"
 
   def scalaArtefactVersion: T[String] =
     scalaVersion.map(_.split("\\.").take(2).mkString("."))
@@ -55,14 +55,21 @@ object plugin extends ScalaModule with PublishModule {
   }
 }
 
-// borked
 object itest extends MillIntegrationTestModule {
 
-  def millTestVersion = "0.11.5"
+  def millTestVersion = plugin.millVersion()
 
   def pluginsUnderTest = Seq(plugin)
 
 }
+
+// object itest extends MillIntegrationTestModule {
+
+//   def millTestVersion = plugin.millVersion()
+
+//   def pluginsUnderTest = Seq(plugin)
+
+// }
 
 object site extends ScalaModule {
   def latestVersion: T[String] = T {

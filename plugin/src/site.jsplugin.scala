@@ -22,7 +22,7 @@ trait SiteJSModule extends ScalaJSModule {
 
   def mdocVersion: Target[String] = T { "2.5.2" }
   def domVersion: Target[String] = T { "2.8.0" }
-  def scalaJsCompilerVersion = "2.13.14"
+  def scalaJsCompilerVersion = "2.13.12"
 
   override def ivyDeps = T {
     super.ivyDeps() ++ Agg(
@@ -98,7 +98,7 @@ trait SiteJSModule extends ScalaJSModule {
       case other =>
         Agg(
           Lib.depToBoundDep(
-            ivy"org.scala-js:scalajs-compiler_${scalaJsCompilerVersion}:$sjs"
+            ivy"org.scala-js:scalajs-compiler_2.13.12:$sjs"
               .exclude("*" -> "*"),
             scalaVersion()
           )
@@ -124,7 +124,7 @@ trait SiteJSModule extends ScalaJSModule {
   }
 
   override def scalacPluginIvyDeps = super.scalacPluginIvyDeps() ++ Agg(
-    ivy"org.scala-js:scalajs-compiler_${scalaJsCompilerVersion}:${scalaJSVersion()}"
+    ivy"org.scala-js:scalajs-compiler_2.13.12:${scalaJSVersion()}"
   )
 
   def mdocDep: T[Agg[Dep]] = T {
