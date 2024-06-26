@@ -97,9 +97,16 @@ trait SiteModule extends ScalaModule {
 
   def browserSyncConfig: T[PathRef] = T {
     val site = live()
-    val file = T.dest / "bs-config.js"
+    val file = T.dest / "bs-config.cjs"
+
+    val sysS = System.getProperty("os.name").toLowerCase(java.util.Locale.ROOT)
+    val sitePath = sysS match {
+      case os if os.contains("win") => site.toString.replace("""\""", """\\""")
+      case _                        => site
+    }
+
     os.write(
-      T.dest / "bs-config.js",
+      file,
       s"""
 /*
  |--------------------------------------------------------------------------
@@ -115,8 +122,8 @@ trait SiteModule extends ScalaModule {
  |
  */
 module.exports = {
-    "files": ["$site"],
-    "serveStatic": ["$site"],
+    "files": ["$sitePath"],
+    "serveStatic": ["$sitePath"],
     "watchEvents": [
         "change"
     ],
