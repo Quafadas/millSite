@@ -5,9 +5,9 @@ Aims to be a batteries included, one stop shop plugin to document a scala3 libra
 Quickstart `build.sc` to publish a website, for a module `foo`, which extends `PublishModule`
 
 ```
-import $ivy.`io.github.quafadas::mill_scala3_site_mdoc::{{projectVersion}}`
+import $ivy.`io.github.quafadas::millSite::{{projectVersion}}`
 
-import millSite.SiteModule
+import io.github.quafadas.millSite..SiteModule
 
 object foo extends ScalaModule with PublishModule{}
 
