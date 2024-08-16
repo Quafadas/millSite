@@ -669,7 +669,9 @@ module.exports = {
               "--in",
               pr.toIO.getAbsolutePath,
               "--out",
-              (mdoccdDir / pr.subRelativeTo(mdocDir)).toIO.getAbsolutePath
+              (mdoccdDir / pr.subRelativeTo(mdocDir)).toIO.getAbsolutePath,
+              "--scalac-options",
+              scalacOptions().mkString(" ")
             )
           }
           .iterator
