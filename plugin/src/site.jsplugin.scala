@@ -62,7 +62,7 @@ trait SiteJSModule extends ScalaJSModule {
       "js-scalac-options" -> jsScalacOptions,
       "js-linker-classpath" -> toArgument(linkerLibs().map(_.path)),
       "js-classpath" -> toArgument(runClasspath().map(_.path)),
-      "js-module-kind" -> "NoModule",
+      "js-module-kind" -> jsModuleKind(),
       "js-out-prefix" -> "_assets/js"
     )
     os.write(
@@ -71,6 +71,8 @@ trait SiteJSModule extends ScalaJSModule {
     )
     PathRef(T.dest)
   }
+
+  def jsModuleKind: T[String] = "ESModule"
 
   protected def linkerDependency = T.task {
     val sjs = scalaJSVersion()
