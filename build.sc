@@ -18,9 +18,9 @@ object plugin extends ScalaModule with PublishModule {
 
   def millPlatform: T[String] = "0.11"
 
-  def millVersion: T[String] = "0.11.8"
+  def millVersion: T[String] = "0.11.12"
 
-  def scalaVersion: T[String] = "2.13.12"
+  def scalaVersion: T[String] = "2.13.14"
 
   def scalaArtefactVersion: T[String] =
     scalaVersion.map(_.split("\\.").take(2).mkString("."))
@@ -65,7 +65,7 @@ object site extends ScalaModule {
     VcsVersion.vcsState().lastTag.getOrElse("0.0.0").replace("v", "")
   }
 
-  def scalaVersion: T[String] = "3.3.1"
+  def scalaVersion: T[String] = "3.3.3"
 
   def sitePath: T[os.Path] = T { docJar().path / os.up / "javadoc" }
 

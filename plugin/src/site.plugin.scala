@@ -68,7 +68,7 @@ trait SiteModule extends ScalaModule {
 
   def artefactNames = T.traverse(findAllTransitiveDeps.toSeq)(_.artifactName)
 
-  def scalaMdocVersion: T[String] = T("2.5.1")
+  def scalaMdocVersion: T[String] = T(Versions.mdocVersion)
 
   def mdocDep: T[Agg[Dep]] = T(
     Agg(

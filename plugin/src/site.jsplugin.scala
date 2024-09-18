@@ -18,9 +18,14 @@ import ClasspathHelp._
 import mill.scalajslib.api.ESFeatures
 import mill.scalajslib.api.ESVersion
 
+object Versions {
+  val mdocVersion = "2.6.1"
+  // val scalaVersion
+}
+
 trait SiteJSModule extends ScalaJSModule {
 
-  def mdocVersion: Target[String] = T { "2.5.2" }
+  def mdocVersion: Target[String] = T { Versions.mdocVersion }
   def domVersion: Target[String] = T { "2.8.0" }
   def scalaJsCompilerVersion = "2.13.12"
 
