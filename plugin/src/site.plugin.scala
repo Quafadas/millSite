@@ -684,7 +684,7 @@ module.exports = {
           classPath = rp ++ Seq(jsSiteModule.mdocJsProperties().path),
           jvmArgs = forkArgs(),
           envArgs = forkEnv(),
-          dirParams,
+          mainArgs = dirParams,
           workingDir = forkWorkingDir(),
           useCpPassingJar = true
         ) // classpath can be long. On windows will barf without passing as Jar

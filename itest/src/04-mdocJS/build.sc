@@ -9,12 +9,15 @@ object foo extends SimpleModule.SimpleModule
 
 // Single module setup
 object simpleJs extends SiteJSModule {
-  override def scalaVersion = "3.3.1"
-  override def scalaJSVersion = "1.14.0"
+  override def scalaVersion = "3.3.3"
+  override def scalaJSVersion = "1.16.0"
+  override def ivyDeps = Agg(
+    ivy"com.raquo::laminar::17.0.0"
+  )
 }
 
 object withJsProject extends SiteModule {
-  override def scalaVersion = "3.3.1"
+  override def scalaVersion = "3.3.3"
   override val jsSiteModule = simpleJs
   def moduleDeps = Seq(foo)
 }
