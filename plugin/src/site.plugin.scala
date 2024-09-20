@@ -693,6 +693,7 @@ module.exports = {
     }
 
     if (os.exists(mdoccdDir / "_docs" / "_assets")) {
+      os.remove.all(mdoccdDir / "_assets")
       os.move(
         mdoccdDir / "_docs" / "_assets",
         mdoccdDir / "_assets",
