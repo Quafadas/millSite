@@ -259,7 +259,13 @@ module.exports = {
       def createDocCache =
         os.write.over(
           docCacheFile,
-          upickle.default.write(QuickChange(Seq(), PathRef(apiCacheFile, true)))
+          upickle.default.write(
+            QuickChange(
+              Seq(),
+              PathRef(apiCacheFile, true),
+              PathRef(apiCacheFile, true)
+            )
+          )
         )
 
       def createAssetCache = os.write.over(assetCacheFile, Array.empty[Byte])
@@ -330,15 +336,16 @@ module.exports = {
         os.write.over(siteDir / path, os.read(aDoc.path).getBytes())
       }
 
+      val mdocProcessedAssets = docdir.staticAssets
       if (os.exists(assetDir)) {
-        if (!(os.read(assetCacheFile) == assetDirSource.sig.toString())) {
+        if (!(os.read(assetCacheFile) == mdocProcessedAssets.sig.toString())) {
           os.copy(
-            assetDir,
+            mdocProcessedAssets.path,
             siteDir,
             mergeFolders = true,
             replaceExisting = true
           )
-          os.write.over(assetCacheFile, assetDirSource.sig.toString())
+          os.write.over(assetCacheFile, mdocProcessedAssets.sig.toString())
         }
       }
 
@@ -453,7 +460,8 @@ module.exports = {
               .filter(os.isFile)
               .map(PathRef(_))
               .toSeq,
-            PathRef(javadocDir, true)
+            PathRef(javadocDir, true),
+            PathRef(combinedStaticDir / "_assets", true)
           )
         )
       case false =>
