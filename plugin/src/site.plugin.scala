@@ -337,16 +337,13 @@ module.exports = {
       }
 
       val mdocProcessedAssets = docdir.staticAssets
-      if (os.exists(assetDir)) {
-        if (!(os.read(assetCacheFile) == mdocProcessedAssets.sig.toString())) {
-          os.copy(
-            mdocProcessedAssets.path,
-            siteDir,
-            mergeFolders = true,
-            replaceExisting = true
-          )
-          os.write.over(assetCacheFile, mdocProcessedAssets.sig.toString())
-        }
+      if (os.exists(mdocProcessedAssets.path)) {
+        os.copy(
+          mdocProcessedAssets.path,
+          siteDir,
+          mergeFolders = true,
+          replaceExisting = true
+        )
       }
 
       val updatedJsDir = docdir.base.path / "js"
@@ -558,6 +555,8 @@ module.exports = {
     ivy"org.scala-lang:scala-library:${scalaVersion}"
   )
 
+  def pathToImportMap: T[Option[PathRef]] = None
+
   def sitePathString: T[String] = T { publishDocs().toString() }
 
   /** Overwrites md files which have been pre-processed by mdoc.
@@ -664,6 +663,7 @@ module.exports = {
     if (!mdocSources_.isEmpty) {
 
       val checkCache = mdocSources_.map(_.sig).diff(cached.map(_.sig))
+      val importMap = pathToImportMap().map(_.path.toIO.getAbsolutePath)
       // println(checkCache)
       val toProceass = mdocSources_.filter { pr =>
         checkCache.contains(pr.sig)
@@ -684,7 +684,9 @@ module.exports = {
           }
           .iterator
           .flatten
-          .toSeq ++ Seq("--classpath", toArgument(cp ++ rp))
+          .toSeq ++ Seq("--classpath", toArgument(cp ++ rp)) ++ importMap.fold(
+          Seq.empty[String]
+        )(i => Seq("--import-map-path", i))
         // Seq("--js-classpath", jsSiteModule.jsclasspath() )
 
         mill.util.Jvm.runSubprocess(
