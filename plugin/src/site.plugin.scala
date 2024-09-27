@@ -214,12 +214,12 @@ module.exports = {
           proj
         )
     }
-    super.scalaDocOptions() ++
-      Seq[String](
-        "-snippet-compiler:compile",
-        "-project-version",
-        latestVersion()
-      ) ++ fromPublishSettings.getOrElse(Seq.empty[String])
+    // super.scalaDocOptions() ++
+    Seq[String](
+      "-snippet-compiler:compile",
+      "-project-version",
+      latestVersion()
+    ) ++ fromPublishSettings.getOrElse(Seq.empty[String])
 
   }
 
@@ -346,21 +346,21 @@ module.exports = {
         )
       }
 
-      val updatedJsDir = docdir.base.path / "js"
-      if (os.exists(updatedJsDir)) {
-        val updatedJsDir_pr = PathRef(updatedJsDir, false)
-        val currentJsSources = PathRef(siteDir / "js", false)
-        if (!(os.read(jsCacheFile) == updatedJsDir_pr.sig.toString())) {
-          println("copy op")
-          println(updatedJsDir)
-          println(currentJsSources.path)
-          os.copy.over(
-            updatedJsDir,
-            currentJsSources.path
-          )
-          os.write.over(jsCacheFile, updatedJsDir_pr.sig.toString())
-        }
-      }
+      // val updatedJsDir = docdir.base.path / "js"
+      // if (os.exists(updatedJsDir)) {
+      //   val updatedJsDir_pr = PathRef(updatedJsDir, false)
+      //   val currentJsSources = PathRef(siteDir / "js", false)
+      //   if (!(os.read(jsCacheFile) == updatedJsDir_pr.sig.toString())) {
+      //     println("copy op")
+      //     println(updatedJsDir)
+      //     println(currentJsSources.path)
+      //     os.copy.over(
+      //       updatedJsDir,
+      //       currentJsSources.path
+      //     )
+      //     os.write.over(jsCacheFile, updatedJsDir_pr.sig.toString())
+      //   }
+      // }
 
       os.write.over(docCacheFile, upickle.default.write(docdir))
       siteDir
@@ -405,12 +405,16 @@ module.exports = {
         // This deals with mdoc JS integration
         case "js" =>
           val name = aDoc.toIO.getName()
-          // println(name)
+          val rel = aDoc.subRelativeTo(md)
+
+          val relative = combinedStaticDir / rel
+          // println(s"$aDoc --> $relative ")
           os.copy.over(
             aDoc,
-            combinedStaticDir / "_assets" / "js" / name,
+            relative,
             createFolders = true
           )
+
       }
     }
 
@@ -451,6 +455,14 @@ module.exports = {
           ++ localCp
       ) match {
       case true =>
+        os.walk(combinedStaticDir / "_docs")
+          .filter(_.ext == "js")
+          .foreach { js =>
+            val rel = js.subRelativeTo(combinedStaticDir / "_docs")
+            println("processing js file " + js)
+            os.copy.over(js, javadocDir / "docs" / rel)
+          }
+
         Result.Success(
           QuickChange(
             os.walk(javadocDir / "docs")
@@ -702,15 +714,15 @@ module.exports = {
       }
     }
 
-    if (os.exists(mdoccdDir / "_docs" / "_assets")) {
-      os.remove.all(mdoccdDir / "_assets")
-      os.move(
-        mdoccdDir / "_docs" / "_assets",
-        mdoccdDir / "_assets",
-        replaceExisting = true,
-        createFolders = true
-      )
-    }
+    // if (os.exists(mdoccdDir / "_docs" / "_assets")) {
+    //   os.remove.all(mdoccdDir / "_assets")
+    //   os.move(
+    //     mdoccdDir / "_docs" / "_assets",
+    //     mdoccdDir / "_assets",
+    //     replaceExisting = true,
+    //     createFolders = true
+    //   )
+    // }
 
     PathRef(mdoccdDir)
   }
