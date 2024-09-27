@@ -487,7 +487,11 @@ module.exports = {
   def publishDocs = T {
     val toPublish = docJar().path / os.up / "javadoc"
     os.copy(toPublish, T.dest, createFolders = true, replaceExisting = true)
-
+    // Monkey patch the .js files from mdoc.
+    os.walk(mdoc().path).filter(_.ext == "js").foreach { js =>
+      val rel = js.subRelativeTo(mdoc().path / "_docs")
+      os.copy.over(js, T.dest / "docs" / rel)
+    }
     PathRef(T.dest)
   }
 

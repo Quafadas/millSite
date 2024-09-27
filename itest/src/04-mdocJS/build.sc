@@ -28,7 +28,6 @@ def verify() = T.command {
   // println(os.read(mdocProps.path / "mdoc.properties"))
   assert(os.exists(mdocProps.path / "mdoc.properties"))
   val mdocProperties = os.read(mdocProps.path / "mdoc.properties")
-  assert(mdocProperties.contains("""js-out-prefix=_assets/js"""))
   assert(mdocProperties.contains("""js-scalac-options"""))
   assert(mdocProperties.contains("""js-linker-classpath"""))
   assert(mdocProperties.contains("""js-classpath"""))
@@ -37,24 +36,24 @@ def verify() = T.command {
   val mdocOut = withJsProject.mdoc().path
   assert(os.exists(mdocOut / "_docs" / "some.mdoc.md"))
   assert(
-    os.exists(mdocOut / "_assets" / "js" / "some.mdoc.md.js")
+    os.exists(mdocOut / "_docs" / "some.mdoc.md.js")
   ) // subRelTo puts these in the right place.
-  assert(os.exists(mdocOut / "_assets" / "js" / "mdoc.js"))
+  assert(os.exists(mdocOut / "_docs" / "mdoc.js"))
 
   val site = withJsProject.live()
   assert(os.exists(site / "docs" / "some.mdoc.html"))
   assert(
-    os.read(site / "docs" / "some.mdoc.html").contains("""src="../js/mdoc.js""")
+    os.read(site / "docs" / "some.mdoc.html").contains("""src="mdoc.js""")
   )
-  assert(os.exists(site / "js" / "some.mdoc.md.js"))
-  assert(os.exists(site / "js" / "mdoc.js"))
+  assert(os.exists(site / "docs" / "some.mdoc.md.js"))
+  assert(os.exists(site / "docs" / "mdoc.js"))
 
   val toPublish = withJsProject.publishDocs().path
   assert(
     os.read(toPublish / "docs" / "some.mdoc.html")
-      .contains("""src="../js/mdoc.js""")
+      .contains("""src="mdoc.js""")
   )
-  assert(os.exists(toPublish / "js" / "some.mdoc.md.js"))
-  assert(os.exists(toPublish / "js" / "mdoc.js"))
+  assert(os.exists(toPublish / "docs" / "some.mdoc.md.js"))
+  assert(os.exists(toPublish / "docs" / "mdoc.js"))
 
 }
