@@ -20,8 +20,8 @@ trait SiteModule extends ScalaModule {
 
   val jsSiteModule: SiteJSModule =
     new SiteJSModule {
-      override def scalaVersion: T[String] = "3.3.3"
-      override def scalaJSVersion: T[String] = "1.16.0"
+      override def scalaVersion: T[String] = "3.3.4"
+      override def scalaJSVersion: T[String] = "1.17.0"
     }
 
   def latestVersion = T {
@@ -537,7 +537,6 @@ module.exports = {
     val combinedStaticDir = T.dest / "static"
     os.makeDir.all(combinedStaticDir)
 
-    val compileCp = compileCpArg
     val options = Seq(
       "-d",
       javadocDir.toNIO.toString,
@@ -546,6 +545,14 @@ module.exports = {
       "-Ygenerate-inkuire"
     )
 
+    val foundFiles = Lib
+      .findSourceFiles(docSources(), Seq("tasty"))
+      .map(_.toString()) // fake api to skip potentially slow doc generation
+
+    // println(foundFiles)
+
+    val docOpts = options ++ compileCpArg() ++ scalaDocOptions() ++ foundFiles
+
     zincWorker()
       .worker()
       .docJar(
@@ -553,11 +560,7 @@ module.exports = {
         scalaOrganization(),
         scalaDocClasspath(),
         scalacPluginClasspath(),
-        options ++ compileCpArg() ++ scalaDocOptions()
-          ++ Lib
-            .findSourceFiles(docSources(), Seq("tasty"))
-            .map(_.toString()) // transitive api, i.e. module deps.
-
+        docOpts
       ) match {
       case true => Result.Success(PathRef(javadocDir, quick = true))
       case false =>

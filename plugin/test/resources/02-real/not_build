@@ -22,7 +22,7 @@ object foo extends SimpleModule {
 
 // Single module setup
 object site extends SiteModule {
-  override def scalaVersion = T("3.3.1")
+  override def scalaVersion = T("3.3.4")
   def moduleDeps = Seq(foo)
 }
 

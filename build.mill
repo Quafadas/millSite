@@ -14,11 +14,13 @@ import mill.scalalib.publish._
 import mill.api.Result
 import mill.util.Jvm.createJar
 
+import mill.main.BuildInfo.millVersion
+
 object plugin extends ScalaModule with PublishModule {
 
-  def millPlatform: T[String] = "0.11"
+  def millPlatform: T[String] = "0.12"
 
-  def millVersion: T[String] = "0.11.12"
+  def millVersion: T[String] = "0.12.0"
 
   def scalaVersion: T[String] = "2.13.14"
 
@@ -34,7 +36,8 @@ object plugin extends ScalaModule with PublishModule {
   )
 
   def ivyDeps = Agg(
-    ivy"de.tototec:de.tobiasroeser.mill.vcs.version_mill0.11_2.13:0.4.0"
+    ivy"de.tototec:de.tobiasroeser.mill.vcs.version_mill0.11_2.13:0.4.0",
+    ivy"com.lihaoyi:mill-dist:${millVersion()}"
   )
 
   def artifactSuffix = s"_mill${millPlatform()}_${scalaArtefactVersion()}"
@@ -52,6 +55,21 @@ object plugin extends ScalaModule with PublishModule {
         Developer("quafadas", "Simon Parten", "https://github.com/quafadas")
       )
     )
+  }
+
+  object test extends ScalaTests with TestModule.Utest {
+    def ivyDeps = Agg(ivy"com.lihaoyi::mill-testkit:${millVersion()}")
+    def forkEnv = Map("MILL_EXECUTABLE_PATH" -> millExecutable.assembly().path.toString)
+
+    object millExecutable extends JavaModule{
+      def ivyDeps = Agg(ivy"com.lihaoyi:mill-dist:${millVersion()}")
+      def mainClass = Some("mill.runner.client.MillClientMain")
+      def resources = Task {
+        val p = Task.dest / "mill/local-test-overrides" / s"com.lihaoyi-${plugin.artifactId()}"
+        os.write(p, plugin.localClasspath().map(_.path).mkString("\n"), createFolders = true)
+        Seq(PathRef(Task.dest))
+      }
+    }
   }
 }
 
