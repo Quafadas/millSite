@@ -24,9 +24,9 @@ jobs:
         with:
           java-version: 17
           distribution: 'temurin'
-      - run: ./millw __.compile
-      - run: ./millw itest.test
-      - run: ./millw __.publishLocal
+      - run: ./millw plugin.compile
+      - run: ./millw plugin.test
+      - run: ./millw plugin.publishLocal
 
   publish:
     if: github.repository == 'Quafadas/millSite' && contains(github.ref, 'refs/tags/')
