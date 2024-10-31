@@ -34,7 +34,7 @@ object MdocJsTest extends TestSuite {
 
       val resourceFolder = os.Path(sys.env("MILL_TEST_RESOURCE_DIR"))
       println(s"resourceFolder: $resourceFolder")
-      UnitTester(wrapper, resourceFolder / "04-mdocJS").scoped { eval =>
+      UnitTester(wrapper, resourceFolder / "04-mdocjs").scoped { eval =>
         val Right(mdocPropsV) = eval(wrapper.simpleJs.mdocJsProperties)
         assert(os.exists(mdocPropsV.value.path / "mdoc.properties"))
 
