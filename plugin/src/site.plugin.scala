@@ -459,7 +459,7 @@ module.exports = {
           .filter(_.ext == "js")
           .foreach { js =>
             val rel = js.subRelativeTo(combinedStaticDir / "_docs")
-            println("processing js file " + js)
+            // println("processing js file " + js)
             os.copy.over(js, javadocDir / "docs" / rel)
           }
 
