@@ -49,7 +49,7 @@ jobs:
       #     gpg --list-secret-keys --keyid-format LONG
 
       - name: Publish to Maven Central
-        run: ./millw -i mill.scalalib.PublishModule/publishAll plugin.publishArtifacts --sonatypeUri https://s01.oss.sonatype.org/service/local
+        run: ./millw -i mill.scalalib.PublishModule/publishAll --sonatypeUri https://s01.oss.sonatype.org/service/local
         env:
           MILL_PGP_PASSPHRASE: ${{ secrets.MILL_PGP_PASSPHRASE }}
           MILL_PGP_SECRET_BASE64: ${{ secrets.MILL_PGP_SECRET_BASE64 }}
