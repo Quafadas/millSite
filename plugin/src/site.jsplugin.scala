@@ -64,7 +64,8 @@ trait SiteJSModule extends ScalaJSModule {
     }
 
     val mdocProps: Map[String, String] = Map(
-      "js-scalac-options" -> jsScalacOptions,
+      "js-scalac-options" -> (List(jsScalacOptions) ++ scalacOptions())
+        .mkString(" "),
       "js-linker-classpath" -> toArgument(linkerLibs().map(_.path)),
       "js-classpath" -> toArgument(runClasspath().map(_.path)),
       "js-module-kind" -> jsModuleKind()
