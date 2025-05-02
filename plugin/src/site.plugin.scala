@@ -95,6 +95,12 @@ trait SiteModule extends ScalaModule {
     "Finished browser-sync"
   }
 
+  def browserSyncBackground() = T.command {
+    runBackgroundTask(
+      browserSync()
+    )
+  }
+
   def browserSyncConfig: T[PathRef] = T {
     val site = live()
     val file = T.dest / "bs-config.cjs"

@@ -37,7 +37,8 @@ object plugin extends ScalaModule with PublishModule {
 
   def ivyDeps = Agg(
     ivy"de.tototec:de.tobiasroeser.mill.vcs.version_mill0.11_2.13:0.4.0",
-    ivy"com.lihaoyi:mill-dist:${millVersion()}"
+    ivy"com.lihaoyi:mill-dist:${millVersion()}",
+    // ivy"io.github.quafadas::sjsls:0.2.5"
   )
 
   def artifactSuffix = s"_mill${millPlatform()}_${scalaArtefactVersion()}"
@@ -83,7 +84,7 @@ object site extends ScalaModule {
     VcsVersion.vcsState().lastTag.getOrElse("0.0.0").replace("v", "")
   }
 
-  def scalaVersion: T[String] = "3.3.3"
+  def scalaVersion: T[String] = "3.3.5"
 
   def sitePath: T[os.Path] = T { docJar().path / os.up / "javadoc" }
 
