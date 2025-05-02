@@ -20,8 +20,8 @@ trait SiteModule extends ScalaModule {
 
   val jsSiteModule: SiteJSModule =
     new SiteJSModule {
-      override def scalaVersion: T[String] = "3.3.4"
-      override def scalaJSVersion: T[String] = "1.17.0"
+      override def scalaVersion: T[String] = "3.3.5"
+      override def scalaJSVersion: T[String] = "1.19.0"
     }
 
   def latestVersion = T {

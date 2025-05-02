@@ -19,7 +19,7 @@ import mill.scalajslib.api.ESFeatures
 import mill.scalajslib.api.ESVersion
 
 object Versions {
-  val mdocVersion = "2.6.1"
+  val mdocVersion = "2.7.1"
   // val scalaVersion
 }
 
@@ -27,7 +27,7 @@ trait SiteJSModule extends ScalaJSModule {
 
   def mdocVersion: Target[String] = T { Versions.mdocVersion }
   def domVersion: Target[String] = T { "2.8.0" }
-  def scalaJsCompilerVersion = "2.13.12"
+  def scalaJsCompilerVersion = "2.13.14"
 
   override def ivyDeps = T {
     super.ivyDeps() ++ Agg(
@@ -106,7 +106,7 @@ trait SiteJSModule extends ScalaJSModule {
       case other =>
         Agg(
           Lib.depToBoundDep(
-            ivy"org.scala-js:scalajs-compiler_2.13.12:$sjs"
+            ivy"org.scala-js:scalajs-compiler_2.13.14:$sjs"
               .exclude("*" -> "*"),
             scalaVersion()
           )
@@ -132,7 +132,7 @@ trait SiteJSModule extends ScalaJSModule {
   }
 
   override def scalacPluginIvyDeps = super.scalacPluginIvyDeps() ++ Agg(
-    ivy"org.scala-js:scalajs-compiler_2.13.12:${scalaJSVersion()}"
+    ivy"org.scala-js:scalajs-compiler_2.13.14:${scalaJSVersion()}"
   )
 
   def mdocDep: T[Agg[Dep]] = T {
