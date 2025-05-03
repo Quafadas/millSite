@@ -101,22 +101,37 @@ trait SiteModule extends ScalaModule {
     )
   }
 
-  def liveServer = T {
+  def serveBackground() = T.command {
+    runBackgroundTask(
+      serve()
+    )
+  }
+
+  def serve() = Task {
     val sitePath = live()
-    os.proc(
-      "cs",
-      "launch",
-      "io.github.quafadas::sjsls:0.2.5",
-      "--",
-      "--path-to-index-html",
-      sitePath.toString(),
-      "--build-tool",
-      "none",
-      "--browse-on-open-at",
-      "/docs/index.html",
-      "--port",
-      "8081"
-    ).call()
+    val res = os
+      .proc(
+        "cs",
+        "launch",
+        "io.github.quafadas::sjsls:0.2.5",
+        "--",
+        "--path-to-index-html",
+        sitePath.toString(),
+        "--build-tool",
+        "none",
+        "--browse-on-open-at",
+        "/docs/index.html",
+        "--port",
+        "8080"
+      )
+      .call(
+        T.dest,
+        stdout = os.Inherit,
+        stderr = os.Inherit,
+        stdin = os.Inherit
+      )
+
+    res.toString()
   }
 
   def browserSyncConfig: T[PathRef] = T {
