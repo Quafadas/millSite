@@ -101,14 +101,15 @@ trait SiteModule extends ScalaModule {
     )
   }
 
-  def serveBackground() = T.command {
+  def serveBackground(port: Option[String]) = T.command {
     runBackgroundTask(
-      serve()
+      serve(port)
     )
   }
 
-  def serve() = Task {
+  def serve(port: Option[String]) = Task {
     val sitePath = live()
+    val port_ = port.getOrElse("8080")
     val res = os
       .proc(
         "cs",
@@ -122,7 +123,7 @@ trait SiteModule extends ScalaModule {
         "--browse-on-open-at",
         "/docs/index.html",
         "--port",
-        "8080"
+        port_
       )
       .call(
         T.dest,
