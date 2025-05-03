@@ -101,6 +101,24 @@ trait SiteModule extends ScalaModule {
     )
   }
 
+  def liveServer = T {
+    val sitePath = live()
+    os.proc(
+      "cs",
+      "launch",
+      "io.github.quafadas::sjsls:0.2.5",
+      "--",
+      "--path-to-index-html",
+      sitePath.toString(),
+      "--build-tool",
+      "none",
+      "--browse-on-open-at",
+      "/docs/index.html",
+      "--port",
+      "8081"
+    ).call()
+  }
+
   def browserSyncConfig: T[PathRef] = T {
     val site = live()
     val file = T.dest / "bs-config.cjs"
@@ -295,6 +313,28 @@ module.exports = {
         // and invalidate the other caches
         createDocCache
         createAssetCache
+      }
+
+      val indexHtml = siteDir / "index.html"
+      if (os.exists(indexHtml)) {
+        val content = os.read(indexHtml)
+        val updatedContent = content.replace(
+          "</body>",
+          s"""
+          <script>
+          const sse = new EventSource("/refresh/v1/sse");
+          sse.addEventListener("message", (e) => {
+          const msg = JSON.parse(e.data);
+
+          if ("KeepAlive" in msg) console.log("KeepAlive");
+
+          if ("PageRefresh" in msg) location.reload();
+          });
+          </script>
+          </body>
+          """
+        )
+        os.write.over(indexHtml, updatedContent)
       }
 
       // Docs ------

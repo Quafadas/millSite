@@ -59,6 +59,10 @@ object SimpleTest extends TestSuite {
 
         val Right(liveRun) = eval(simples.live)
         val liveResults = liveRun.value / "foo.html"
+        val indexRefreshes = os.read(liveRun.value / "index.html")
+        indexRefreshes.contains(
+          """const sse = new EventSource("/refresh/v1/sse")"""
+        )
 
         val Right(toPublish) = eval(simples.publishDocs)
         val publishPath = toPublish.value.path
