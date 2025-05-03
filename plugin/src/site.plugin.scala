@@ -107,7 +107,7 @@ trait SiteModule extends ScalaModule {
     )
   }
 
-  def serve(port: Option[String]) = Task {
+  def serve(port: Option[String]) = T {
     val sitePath = live()
     val port_ = port.getOrElse("8080")
     val res = os
