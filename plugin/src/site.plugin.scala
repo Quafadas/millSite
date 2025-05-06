@@ -95,21 +95,21 @@ trait SiteModule extends ScalaModule {
     "Finished browser-sync"
   }
 
-  def browserSyncBackground() = T.command {
+  def browserSyncBackground() =
     runBackgroundTask(
       browserSync()
     )
-  }
 
-  def serveBackground(port: Option[String]) = T.command {
+  def serveBackground() = T.command {
     runBackgroundTask(
-      serve(port)
+      serve
     )
   }
 
-  def serve(port: Option[String]) = T {
+  def serve() = T.command {
     val sitePath = live()
-    val port_ = port.getOrElse("8080")
+    // val port_ = port.getOrElse("8080")
+
     val res = os
       .proc(
         "cs",
@@ -123,7 +123,7 @@ trait SiteModule extends ScalaModule {
         "--browse-on-open-at",
         "/docs/index.html",
         "--port",
-        port_
+        "8080"
       )
       .call(
         T.dest,
@@ -132,7 +132,13 @@ trait SiteModule extends ScalaModule {
         stdin = os.Inherit
       )
 
-    res.toString()
+    res.exitCode match {
+      case 0 => Result.Success("Finished serving")
+      case _ =>
+        Result.Failure(
+          s"Failed to start server. Please check the output above for more details."
+        )
+    }
   }
 
   def browserSyncConfig: T[PathRef] = T {
@@ -331,26 +337,52 @@ module.exports = {
         createAssetCache
       }
 
-      val indexHtml = siteDir / "index.html"
-      if (os.exists(indexHtml)) {
-        val content = os.read(indexHtml)
-        val updatedContent = content.replace(
-          "</body>",
-          s"""
-          <script>
-          const sse = new EventSource("/refresh/v1/sse");
-          sse.addEventListener("message", (e) => {
-          const msg = JSON.parse(e.data);
+      val refreshStr = s"""
+            <script>
+            const sse = new EventSource("/refresh/v1/sse");
+            sse.addEventListener("message", (e) => {
+            const msg = JSON.parse(e.data);
 
-          if ("KeepAlive" in msg) console.log("KeepAlive");
+            if ("KeepAlive" in msg) console.log("KeepAlive");
 
-          if ("PageRefresh" in msg) location.reload();
-          });
-          </script>
-          </body>
-          """
-        )
-        os.write.over(indexHtml, updatedContent)
+            if ("PageRefresh" in msg) location.reload();
+            });
+            </script>
+            </body>
+            """
+
+      val htmlFiles =
+        os.walk(siteDir / "docs").filter(_.ext == "html").foreach { htmlFile =>
+          val content = os.read(htmlFile)
+          if (
+            !content.contains(
+              """const sse = new EventSource(" / refresh / v1 / sse");"""
+            )
+          ) {
+            val updatedContent = content.replace(
+              "</body>",
+              refreshStr
+            )
+            os.write.over(htmlFile, updatedContent)
+          }
+
+        }
+
+      val htmlIndex = siteDir / "index.html"
+      if (os.exists(htmlIndex)) {
+        val content = os.read(htmlIndex)
+        if (
+          !content.contains(
+            """const sse = new EventSource(" / refresh / v1 / sse");"""
+          )
+        ) {
+          val updatedContent = content.replace(
+            "</body>",
+            refreshStr
+          )
+          os.write.over(htmlIndex, updatedContent)
+        }
+
       }
 
       // Docs ------
