@@ -1,93 +1,92 @@
 package io.github.quafadas.millSite
 
-import mill._
-import mill.scalalib._
-import mill.scalajslib._
-
+import mill.*
+import mill.scalalib.*
+import mill.scalajslib.*
+import coursier.maven.MavenRepository
 import mill.api.Result
 import mill.util.Jvm.createJar
-import mill.api.PathRef
+import mill.define.PathRef
 import mill.scalalib.api.CompilationResult
-import de.tobiasroeser.mill.vcs.version.VcsVersion
+// import de.tobiasroeser.mill.vcs.version.VcsVersion
 import scala.util.Try
 import mill.scalalib.publish.PomSettings
 import mill.scalalib.publish.License
 import mill.scalalib.publish.VersionControl
 import os.SubPath
-import ClasspathHelp._
+import ClasspathHelp.*
 
-trait SiteModule extends ScalaModule {
+trait SiteModule extends ScalaModule:
 
   val jsSiteModule: SiteJSModule =
-    new SiteJSModule {
-      override def scalaVersion: T[String] = "3.3.5"
-      override def scalaJSVersion: T[String] = "1.19.0"
-    }
+    new SiteJSModule:
+      override def scalaVersion = Task("3.3.5")
+      override def scalaJSVersion = Task("1.19.0")
 
-  def latestVersion = T {
-    VcsVersion.vcsState().lastTag.getOrElse("0.0.0").replace("v", "")
-  }
+// TODO
+  // def latestVersion = Task {
+  //   VcsVersion.vcsState().lastTag.getOrElse("0.0.0").replace("v", "")
+  // }
 
   // def scalaVersion = T("3.3.1")
 
-  /** If we're given module dependancies, then assume we probably don't want to
-    * include source files in the doc site, in the published API docs.
+  /** If we're given module dependancies, then assume we probably don't want to include source files in the doc site, in
+    * the published API docs.
     */
-  def checkModuleModule: Unit = if (moduleDeps.length == 0)
-    throw new Exception("You must provide at least one module dependency")
+  def checkModuleModule: Unit =
+    if moduleDeps.length == 0 then throw new Exception("You must provide at least one module dependency")
 
   /** Finds everything that is going to get published
     *
     * @return
     */
-  def findAllTransitiveDeps: Set[JavaModule] = {
+  def findAllTransitiveDeps: Set[JavaModule] =
     def loop(
         acc: Set[JavaModule],
         current: JavaModule
-    ): Set[JavaModule] = {
+    ): Set[JavaModule] =
       val newAcc = acc + current
       val newDeps = current.moduleDeps
         .filter(_.isInstanceOf[PublishModule])
         .filterNot(newAcc.contains(_))
         .toSet
-      if (newDeps.isEmpty) newAcc
+      if newDeps.isEmpty then newAcc
       else newDeps.foldLeft(newAcc)((acc, dep) => loop(acc, dep))
-    }
+      end if
+    end loop
     moduleDeps.foldLeft(Set[JavaModule]())((acc, dep) => loop(acc, dep))
+  end findAllTransitiveDeps
+
+  override def docSources = Task {
+    Task.traverse(findAllTransitiveDeps.toSeq)(_.docSources)().flatten
   }
 
-  override def docSources = T.sources {
-    T.traverse(findAllTransitiveDeps.toSeq)(_.docSources)().flatten
-
+  override def compileClasspath = Task {
+    Task.traverse(findAllTransitiveDeps.toSeq)(_.compileClasspath)().flatten ++ super.compileClasspath()
   }
 
-  override def compileClasspath = T {
-    T.traverse(findAllTransitiveDeps.toSeq)(_.compileClasspath)()
-      .flatten ++ super.compileClasspath()
-  }
+  def artefactNames = Task.traverse(findAllTransitiveDeps.toSeq)(_.artifactName)
 
-  def artefactNames = T.traverse(findAllTransitiveDeps.toSeq)(_.artifactName)
+  def scalaMdocVersion: T[String] = Task(Versions.mdocVersion)
 
-  def scalaMdocVersion: T[String] = T(Versions.mdocVersion)
-
-  def mdocDep: T[Agg[Dep]] = T(
-    Agg(
-      ivy"org.scalameta::mdoc-js:${scalaMdocVersion()}",
-      ivy"org.scalameta::mdoc:${scalaMdocVersion()}"
+  def mdocDep: T[Seq[Dep]] = Task(
+    Seq(
+      mvn"org.scalameta::mdoc-js:${scalaMdocVersion()}",
+      mvn"org.scalameta::mdoc:${scalaMdocVersion()}"
         .exclude("org.scala-lang" -> "scala3-compiler_3")
         .exclude("org.scala-lang" -> "scala3-library_3"),
-      ivy"org.scala-lang::scala3-compiler:${scalaVersion()}",
-      ivy"org.scala-lang::scala3-library:${scalaVersion()}",
-      ivy"org.scala-lang::tasty-core:${scalaVersion()}",
-      ivy"org.scala-lang.modules::scala-xml:2.1.0"
+      mvn"org.scala-lang::scala3-compiler:${scalaVersion()}",
+      mvn"org.scala-lang::scala3-library:${scalaVersion()}",
+      mvn"org.scala-lang::tasty-core:${scalaVersion()}",
+      mvn"org.scala-lang.modules::scala-xml:2.1.0"
     )
   )
 
-  def browserSync() = T.command {
+  def browserSync() = Task.Command {
     val conf = browserSyncConfig()
     os.proc("browser-sync", "start", "--config", conf.path)
       .call(
-        cwd = super.millSourcePath,
+        cwd = super.moduleDir,
         stdin = os.Inherit,
         stdout = os.Inherit,
         stderr = os.Inherit
@@ -100,13 +99,13 @@ trait SiteModule extends ScalaModule {
       browserSync()
     )
 
-  def serveBackground() = T.command {
-    runBackgroundTask(
-      serve
-    )
-  }
+  // def serveBackground() = Task.Command {
+  //   runBackgroundTask(
+  //     serve()
+  //   )
+  // }
 
-  def serve() = T.command {
+  def serve() = Task.Command {
     val sitePath = live()
     // val port_ = port.getOrElse("8080")
 
@@ -126,30 +125,29 @@ trait SiteModule extends ScalaModule {
         "8080"
       )
       .call(
-        T.dest,
+        Task.dest,
         stdout = os.Inherit,
         stderr = os.Inherit,
         stdin = os.Inherit
       )
 
-    res.exitCode match {
+    res.exitCode match
       case 0 => Result.Success("Finished serving")
       case _ =>
         Result.Failure(
           s"Failed to start server. Please check the output above for more details."
         )
-    }
+    end match
   }
 
-  def browserSyncConfig: T[PathRef] = T {
+  def browserSyncConfig: T[PathRef] = Task {
     val site = live()
-    val file = T.dest / "bs-config.cjs"
+    val file = Task.dest / "bs-config.cjs"
 
     val sysS = System.getProperty("os.name").toLowerCase(java.util.Locale.ROOT)
-    val sitePath = sysS match {
+    val sitePath = sysS match
       case os if os.contains("win") => site.toString.replace("""\""", """\\""")
       case _                        => site
-    }
 
     os.write(
       file,
@@ -181,12 +179,11 @@ module.exports = {
     PathRef(file)
   }
 
-  def mdocDepBound: T[Agg[BoundDep]] =
-    mdocDep().map(Lib.depToBoundDep(_, scalaVersion()))
+  def mDocLibs = Task {
+    defaultResolver().classpath(mdocDep())
+  }
 
-  def mDocLibs = T { resolveDeps(mdocDepBound) }
-
-  // def transitiveDocSources: T[Seq[PathRef]] = T {
+  // def transitiveDocSources: T[Seq[PathRef]] = Task {
   //   // val transitiveDeps = moduleDeps.flatMap(_.moduleDeps).toSet.toSeq
   //   val transitiveAPiSources =
   //     T.traverse(findAllTransitiveDeps.toSeq)(_.docSources)().flatten
@@ -195,15 +192,15 @@ module.exports = {
   //   } else transitiveAPiSources
   // }
 
-  def mdocSourceDir = T.source { mdocDir }
+  def mdocSourceDir = Task.Source(mdocDir)
 
-  def mdocDir = super.millSourcePath / "docs"
+  def mdocDir = super.moduleDir / "docs"
 
   def assetDir = mdocDir / "_assets"
 
   def assetDirSource = PathRef(assetDir, true)
 
-  def compileCpArg: T[Seq[String]] = T {
+  def compileCpArg: T[Seq[String]] = Task {
     Seq(
       "-classpath",
       compileClasspath().iterator
@@ -213,11 +210,10 @@ module.exports = {
     )
   }
 
-  def findPomSettings = T
+  def findPomSettings = Task
     .traverse(moduleDeps.filter(_.isInstanceOf[PublishModule]))(
-      _ match {
+      _ match
         case pm: PublishModule => pm.pomSettings
-      }
     )
     .map(_.headOption)
 
@@ -229,13 +225,13 @@ module.exports = {
     *
     * @return
     */
-  override def scalaDocOptions = T {
+  override def scalaDocOptions = Task {
 
     val fromPublishSettings = findPomSettings().map { ps =>
       val proj = ps.url.split("/").last
       val allModules = artefactNames()
         .map(mod =>
-          s""" "${ps.organization}" %% "${mod}" % "${latestVersion()}" """
+          s""" "${ps.organization}" %% "${mod}" """ // " % "${latestVersion()}" """
         )
         .mkString(
           "libraryDependencies ++= Seq(",
@@ -252,51 +248,49 @@ module.exports = {
         }
         .getOrElse(Seq.empty[String])
 
-      if (artefactNames().isEmpty) {
-        slink
-      } else
+      if artefactNames().isEmpty then slink
+      else
         Seq("-scastie-configuration", allModules) ++ slink ++ Seq(
           "-project",
           proj
         )
+      end if
     }
     // super.scalaDocOptions() ++
     Seq[String](
-      "-snippet-compiler:compile",
-      "-project-version",
-      latestVersion()
+      "-snippet-compiler:compile"
+      // TODO
+      // "-project-version",
+      // latestVersion()
     ) ++ fromPublishSettings.getOrElse(Seq.empty[String])
 
   }
 
   /** Creates a static site, with the API docs, and the your own docs.
     *
-    *   1. Obtain API only docs 2. Obtain your own docs 3. Compare 1 & 2 against
-    *      caches. Recreate the entire site if the API has changed. 4. Delete
-    *      any removed docs 5. Copy the _contents_ of any changed docs into the
-    *      site
+    *   1. Obtain API only docs 2. Obtain your own docs 3. Compare 1 & 2 against caches. Recreate the entire site if the
+    *      API has changed. 4. Delete any removed docs 5. Copy the _contents_ of any changed docs into the site
     *
     * This algorithm is potentially a lot more complex than it needs to be.
     *
-    * However, without 5, live reloading, enabled by third party applications,
-    * e.g. browsersync, or VSCodes live reaload extension, gets janky.
+    * However, without 5, live reloading, enabled by third party applications, e.g. browsersync, or VSCodes live reaload
+    * extension, gets janky.
     *
-    * Or, it takes ages, as generating API docs is slow. Making this, my best
-    * take on it.
+    * Or, it takes ages, as generating API docs is slow. Making this, my best take on it.
     *
     * @return
-    *   The folder of a static site you can server somwhere. Github pages
-    *   friendly.
+    *   The folder of a static site you can server somwhere. Github pages friendly.
     */
   def live: T[os.Path] =
-    T.persistent { // persistent otherwise live reloading borks
+    Task(persistent = true) { // persistent otherwise live reloading borks
       mdocSourceDir() // force this to trigger on change to dir sources
       val apidir = apiOnlyGen()
       val docdir = docOnlyGen()
 
-      val cacheDir = T.dest / "cache"
-      val siteDir = T.dest / "site"
-      if (!os.exists(cacheDir)) os.makeDir.all(cacheDir)
+      val cacheDir = Task.dest / "cache"
+      val siteDir = Task.dest / "site"
+      if !os.exists(cacheDir) then os.makeDir.all(cacheDir)
+      end if
       val apiCacheFile = cacheDir / "cache.txt"
       val jsCacheFile = cacheDir / "jsCache.txt"
       val assetCacheFile = cacheDir / "asset.txt"
@@ -316,17 +310,21 @@ module.exports = {
 
       def createAssetCache = os.write.over(assetCacheFile, Array.empty[Byte])
 
-      if (!os.exists(apiCacheFile)) os.write(apiCacheFile, Array.empty[Byte])
-      if (!os.exists(jsCacheFile)) os.write.over(jsCacheFile, Array.empty[Byte])
-      if (!os.exists(assetCacheFile)) createAssetCache
-      if (!os.exists(docCacheFile)) createDocCache
+      if !os.exists(apiCacheFile) then os.write(apiCacheFile, Array.empty[Byte])
+      end if
+      if !os.exists(jsCacheFile) then os.write.over(jsCacheFile, Array.empty[Byte])
+      end if
+      if !os.exists(assetCacheFile) then createAssetCache
+      end if
+      if !os.exists(docCacheFile) then createDocCache
+      end if
 
       // API ------
       val priorApiHash = os.read(apiCacheFile)
       val apiHash = apidir.sig
 
       // If the API has changed, toss everything and start again
-      if (priorApiHash != apiHash.toString()) {
+      if priorApiHash != apiHash.toString() then
         // println("API has changed, regenerating site")
         os.write.over(cacheDir / "cache.txt", apiHash.toString())
         os.remove.all(siteDir)
@@ -335,7 +333,7 @@ module.exports = {
         // and invalidate the other caches
         createDocCache
         createAssetCache
-      }
+      end if
 
       val refreshStr = s"""
             <script>
@@ -354,36 +352,33 @@ module.exports = {
       val htmlFiles =
         os.walk(siteDir / "docs").filter(_.ext == "html").foreach { htmlFile =>
           val content = os.read(htmlFile)
-          if (
-            !content.contains(
+          if !content.contains(
               """const sse = new EventSource(" / refresh / v1 / sse");"""
             )
-          ) {
+          then
             val updatedContent = content.replace(
               "</body>",
               refreshStr
             )
             os.write.over(htmlFile, updatedContent)
-          }
+          end if
 
         }
 
       val htmlIndex = siteDir / "index.html"
-      if (os.exists(htmlIndex)) {
+      if os.exists(htmlIndex) then
         val content = os.read(htmlIndex)
-        if (
-          !content.contains(
+        if !content.contains(
             """const sse = new EventSource(" / refresh / v1 / sse");"""
           )
-        ) {
+        then
           val updatedContent = content.replace(
             "</body>",
             refreshStr
           )
           os.write.over(htmlIndex, updatedContent)
-        }
-
-      }
+        end if
+      end if
 
       // Docs ------
       val priorDocHash =
@@ -401,21 +396,20 @@ module.exports = {
       // delete removed documents
       val deletedDocs = currDocsRelPaths.diff(allTheDocs)
       // // println("to delete" ++ deletedDocs.toString)
-      for (aDoc <- deletedDocs) {
+      for aDoc <- deletedDocs do
         // println("Deleting " + aDoc)
         os.remove(siteDir / aDoc)
-      }
+      end for
 
       // create (blank) added documents
       val newDocs =
         currDocsRelPaths.diff(priorDocsRelPaths.removedAll(deletedDocs))
       // println("to add" ++ newDocs.toString)
-      for (aDoc <- newDocs) {
-        if (!os.exists(siteDir / aDoc)) {
+      for aDoc <- newDocs do
+        if !os.exists(siteDir / aDoc) then
           // println("Adding " + aDoc)
           os.write(siteDir / aDoc, Array.empty[Byte], createFolders = true)
-        }
-      }
+      end for
 
       // Copy contents of changed documents into files
       val changed = currDocs.map(_.sig).diff(priorDocHash.docs.map(_.sig))
@@ -431,14 +425,14 @@ module.exports = {
       }
 
       val mdocProcessedAssets = docdir.staticAssets
-      if (os.exists(mdocProcessedAssets.path)) {
+      if os.exists(mdocProcessedAssets.path) then
         os.copy(
           mdocProcessedAssets.path,
           siteDir,
           mergeFolders = true,
           replaceExisting = true
         )
-      }
+      end if
 
       // val updatedJsDir = docdir.base.path / "js"
       // if (os.exists(updatedJsDir)) {
@@ -462,36 +456,32 @@ module.exports = {
 
   /** Filthy. String replace stuff to get the paths right.
     *
-    * Assumes that the mdoc properties file has this in. "js-out-prefix" ->
-    * "_assets/js"
+    * Assumes that the mdoc properties file has this in. "js-out-prefix" -> "_assets/js"
     *
     * @param docFile
     */
-  private def fixAssets(docFile: os.Path) = {
-    if (docFile.ext == "md") {
+  private def fixAssets(docFile: os.Path) =
+    if docFile.ext == "md" then
       val fixyFixy = os
         .read(docFile)
         .replace("../_assets/", "") // Fix pictures etc
         .replace("""src="_assets/js/""", """src="../js/""") // fix mdoc JS links
       os.write.over(docFile, fixyFixy.getBytes())
-    }
-  }
 
-  def docOnlyGen: T[QuickChange] = T {
+  def docOnlyGen: T[QuickChange] = Task {
     val md = mdoc().path
     val origDocs = mdocSourceDir().path
-    val javadocDir = T.dest / "javadoc"
+    val javadocDir = Task.dest / "javadoc"
     os.makeDir.all(javadocDir)
-    val combinedStaticDir = T.dest / "static"
+    val combinedStaticDir = Task.dest / "static"
     os.makeDir.all(combinedStaticDir)
 
     // copy mdoccd files in
 
-    for {
-      aDoc <- os.walk(md).filter(os.isFile)
-    } {
+    for aDoc <- os.walk(md).filter(os.isFile)
+    do
       // println(aDoc.ext)
-      aDoc.ext match {
+      aDoc.ext match
         case "md" =>
           val rel = (combinedStaticDir / aDoc.subRelativeTo(md))
           os.copy.over(aDoc, rel, createFolders = true)
@@ -508,23 +498,20 @@ module.exports = {
             relative,
             createFolders = true
           )
-
-      }
-    }
+    end for
 
     // copy all other doc files
-    for {
+    for
       aDoc <- os.walk(origDocs).filter(os.isFile)
       rel = (combinedStaticDir / aDoc.subRelativeTo(mdocDir));
       if !os.exists(rel)
-    } {
+    do
       os.copy(aDoc, rel, createFolders = true)
       fixAssets(rel) // pure filth, report as bug?
-    }
+    end for
 
-    if (os.exists(assetDir)) {
-      os.copy(assetDir, javadocDir, mergeFolders = true, replaceExisting = true)
-    }
+    if os.exists(assetDir) then os.copy(assetDir, javadocDir, mergeFolders = true, replaceExisting = true)
+    end if
 
     val compileCp = compileCpArg
     val options = Seq(
@@ -538,7 +525,7 @@ module.exports = {
       .findSourceFiles(Seq(fakeSource().classes), Seq("tasty"))
       .map(_.toString()) // fake api to skip potentially slow doc generation
 
-    zincWorker()
+    jvmWorker()
       .worker()
       .docJar(
         scalaVersion(),
@@ -547,7 +534,7 @@ module.exports = {
         scalacPluginClasspath(),
         options ++ compileCpArg() ++ scalaDocOptions()
           ++ localCp
-      ) match {
+      ) match
       case true =>
         os.walk(combinedStaticDir / "_docs")
           .filter(_.ext == "js")
@@ -571,43 +558,43 @@ module.exports = {
         Result.Failure(
           s"""Documentation generatation failed. Cause could include be no sources files in : ${sources()} or no doc files in ${docSources()}, or an error message printed above... """
         )
-    }
+    end match
   }
 
   /** Extract the website, from `docJar`
     *
     * @return
     */
-  def publishDocs = T {
+  def publishDocs = Task {
     val toPublish = docJar().path / os.up / "javadoc"
-    os.copy(toPublish, T.dest, createFolders = true, replaceExisting = true)
+    os.copy(toPublish, Task.dest, createFolders = true, replaceExisting = true)
     // Monkey patch the .js files from mdoc.
     os.walk(mdoc().path).filter(_.ext == "js").foreach { js =>
       val rel = js.subRelativeTo(mdoc().path / "_docs")
-      os.copy.over(js, T.dest / "docs" / rel)
+      os.copy.over(js, Task.dest / "docs" / rel)
     }
-    PathRef(T.dest)
+    PathRef(Task.dest)
   }
 
-  def fakeDoc: T[PathRef] = T {
-    val emptyDoc = T.dest / "_docs" / "empty.md"
+  def fakeDoc: T[PathRef] = Task {
+    val emptyDoc = Task.dest / "_docs" / "empty.md"
     os.makeDir(emptyDoc / os.up)
     os.write.over(
       emptyDoc,
       "# Fake Doc \n \n To trick the API generator into having a link to the docs part of the website"
         .getBytes()
     )
-    PathRef(T.dest)
+    PathRef(Task.dest)
   }
 
-  def fakeSource: T[CompilationResult] = T {
-    val emptyDoc = T.dest / "src" / "fake.scala"
+  def fakeSource: T[CompilationResult] = Task {
+    val emptyDoc = Task.dest / "src" / "fake.scala"
     os.makeDir(emptyDoc / os.up)
     os.write.over(
       emptyDoc,
       "package fake \n \n object Fake: \n  def apply() = ???"
     )
-    zincWorker()
+    jvmWorker()
       .worker()
       .compileMixed(
         upstreamCompileOutput = upstreamCompileOutput(),
@@ -619,16 +606,18 @@ module.exports = {
         scalacOptions = allScalacOptions(),
         compilerClasspath = scalaCompilerClasspath(),
         scalacPluginClasspath = scalacPluginClasspath(),
-        reporter = T.reporter.apply(hashCode),
-        reportCachedProblems = zincReportCachedProblems()
+        reporter = Task.reporter.apply(hashCode),
+        reportCachedProblems = zincReportCachedProblems(),
+        incrementalCompilation = true,
+        auxiliaryClassFileExtensions = List.empty[String]
       )
   }
 
-  def apiOnlyGen: T[PathRef] = T {
+  def apiOnlyGen: T[PathRef] = Task {
     compile()
-    val javadocDir = T.dest / "javadoc"
+    val javadocDir = Task.dest / "javadoc"
     os.makeDir.all(javadocDir)
-    val combinedStaticDir = T.dest / "static"
+    val combinedStaticDir = Task.dest / "static"
     os.makeDir.all(combinedStaticDir)
 
     val options = Seq(
@@ -647,7 +636,7 @@ module.exports = {
 
     val docOpts = options ++ compileCpArg() ++ scalaDocOptions() ++ foundFiles
 
-    zincWorker()
+    jvmWorker()
       .worker()
       .docJar(
         scalaVersion(),
@@ -655,46 +644,42 @@ module.exports = {
         scalaDocClasspath(),
         scalacPluginClasspath(),
         docOpts
-      ) match {
+      ) match
       case true => Result.Success(PathRef(javadocDir, quick = true))
       case false =>
         Result.Failure(
           s"Documentation generatation failed. This would normally indicate that the standard mill `docJar` command on one of the underlying projects will fail. Please attempt to fix that problem and try again  "
         )
-    }
+    end match
   }
 
-  def scalaLibrary: T[Dep] = T(
-    ivy"org.scala-lang:scala-library:${scalaVersion}"
+  def scalaLibrary: T[Dep] = Task(
+    mvn"org.scala-lang:scala-library:${scalaVersion}"
   )
 
   def pathToImportMap: T[Option[PathRef]] = None
 
-  def sitePathString: T[String] = T { publishDocs().toString() }
+  def sitePathString: T[String] = Task(publishDocs().toString())
 
   /** Overwrites md files which have been pre-processed by mdoc.
     */
-  override def docResources: Target[Seq[PathRef]] = T {
+  override def docResources: Target[Seq[PathRef]] = Task {
     val out = super.docResources()
-    for (pr <- out) {
-      os.copy.over(pr.path, T.dest)
-    }
+    for pr <- out do os.copy.over(pr.path, Task.dest)
+    end for
     os.copy(
       mdoc().path,
-      T.dest,
+      Task.dest,
       mergeFolders = true,
       replaceExisting = true,
       createFolders = true
     )
 
     // manually tamper with asset paths!!!
-    for (f <- os.walk(T.dest)) {
-      if (os.isFile(f)) {
-        fixAssets(f)
-      }
-    }
+    for f <- os.walk(Task.dest) do if os.isFile(f) then fixAssets(f)
+    end for
 
-    Seq(PathRef(T.dest))
+    Seq(PathRef(Task.dest))
   }
 
   def guessGithubAction: T[String] =
@@ -742,27 +727,30 @@ module.exports = {
 """
 
   // This is the source directory, of the entire site.
-  def siteSources: T[Seq[PathRef]] = T.sources { super.millSourcePath / "docs" }
+  def siteSources = moduleDir / "docs"
 
-  def mdocSources: T[Seq[PathRef]] = T.sources {
+  def mdocSources: T[Seq[PathRef]] = Task {
     os.walk(mdocDir)
       .filter(os.isFile)
       .filter(_.toIO.getName().contains("mdoc.md"))
       .map(PathRef(_))
   }
 
-  def mdoc: T[PathRef] = T.persistent {
+  def mdoc: Task[PathRef] = Task(persistent = true) {
     compile()
-    val cacheDir = T.dest / "cache"
-    val mdoccdDir = T.dest / "mdoccd"
+    val cacheDir = Task.dest / "cache"
+    val mdoccdDir = Task.dest / "mdoccd"
     val cacheFile = cacheDir / "cache.json"
-    if (!os.exists(cacheDir)) os.makeDir.all(cacheDir)
-    if (!os.exists(mdoccdDir)) os.makeDir.all(mdoccdDir)
-    if (!os.exists(cacheFile)) os.write(cacheFile, "[]")
+    if !os.exists(cacheDir) then os.makeDir.all(cacheDir)
+    end if
+    if !os.exists(mdoccdDir) then os.makeDir.all(mdoccdDir)
+    end if
+    if !os.exists(cacheFile) then os.write(cacheFile, "[]")
+    end if
 
     val cp = runClasspath().map(_.path)
     val rp = mDocLibs().map(_.path)
-    val dir = T.dest.toIO.getAbsolutePath
+    val dir = Task.dest.toIO.getAbsolutePath
     val mdocSources_ = mdocSources().filter(pr => os.isFile(pr.path))
     val cached = upickle.default.read[Seq[PathRef]](os.read(cacheFile))
 
@@ -773,7 +761,7 @@ module.exports = {
 
     cachedList.diff(currList).foreach(del => os.remove(mdoccdDir / del))
 
-    if (!mdocSources_.isEmpty) {
+    val result = if !mdocSources_.isEmpty then
 
       val checkCache = mdocSources_.map(_.sig).diff(cached.map(_.sig))
       val importMap = pathToImportMap().map(_.path.toIO.getAbsolutePath)
@@ -781,7 +769,7 @@ module.exports = {
       val toProceass = mdocSources_.filter { pr =>
         checkCache.contains(pr.sig)
       }
-      if (!toProceass.isEmpty) {
+      val res = if !toProceass.isEmpty then
 
         val dirParams = toProceass
           .map(_.path)
@@ -802,18 +790,20 @@ module.exports = {
         )(i => Seq("--import-map-path", i))
         // Seq("--js-classpath", jsSiteModule.jsclasspath() )
 
-        mill.util.Jvm.runSubprocess(
-          mainClass = "mdoc.Main",
-          classPath = rp ++ Seq(jsSiteModule.mdocJsProperties().path),
-          jvmArgs = forkArgs(),
-          envArgs = forkEnv(),
-          mainArgs = dirParams,
-          workingDir = forkWorkingDir(),
-          useCpPassingJar = true
-        ) // classpath can be long. On windows will barf without passing as Jar
+        val arg1 = Result.create(
+          mill.util.Jvm.callProcess(
+            mainClass = "mdoc.Main",
+            classPath = rp ++ Seq(jsSiteModule.mdocJsProperties().path),
+            jvmArgs = forkArgs(),
+            env = forkEnv(),
+            mainArgs = dirParams,
+            cpPassingJarPath =
+              Some(forkWorkingDir()) // classpath can be long. On windows will barf without passing as Jar
+          )
+        )
         os.write.over(cacheFile, upickle.default.write(mdocSources_))
-      }
-    }
+        arg1
+      else Result.Success("No mdoc sources found")
 
     // if (os.exists(mdoccdDir / "_docs" / "_assets")) {
     //   os.remove.all(mdoccdDir / "_assets")
@@ -827,5 +817,4 @@ module.exports = {
 
     PathRef(mdoccdDir)
   }
-
-}
+end SiteModule

@@ -6,9 +6,9 @@ import mill.scalajslib._
 
 import mill.api.Result
 import mill.util.Jvm.createJar
-import mill.api.PathRef
+import mill.define.PathRef
 import mill.scalalib.api.CompilationResult
-import de.tobiasroeser.mill.vcs.version.VcsVersion
+import coursier.maven.MavenRepository
 import scala.util.Try
 import mill.scalalib.publish.PomSettings
 import mill.scalalib.publish.License
@@ -19,54 +19,55 @@ import mill.scalajslib.api.ESFeatures
 import mill.scalajslib.api.ESVersion
 
 object Versions {
-  val mdocVersion = "2.7.1"
-  // val scalaVersion
+  val mdocVersion = "2.7.1"  
 }
+
+val repos = "https://packages.schroders.com/artifactory/maven"
 
 trait SiteJSModule extends ScalaJSModule {
 
-  def mdocVersion: Target[String] = T { Versions.mdocVersion }
-  def domVersion: Target[String] = T { "2.8.0" }
-  def scalaJsCompilerVersion = "2.13.14"
-
-  override def ivyDeps = T {
-    super.ivyDeps() ++ Agg(
-      ivy"org.scala-js::scalajs-dom::${domVersion()}"
-      // ivy"org.scala-js:scalajs-library_2.13:${scalaJSVersion()}" shoudl be covered by mandatory ivyDeps
-    ) ++ super.mandatoryIvyDeps()
+  override def repositories: T[Seq[String]] = Task {
+    Seq(
+      "https://packages.schroders.com/artifactory/maven"
+    )
   }
 
-  /** Does this do anything?
-    */
+  def mdocVersion: Target[String] = Task { Versions.mdocVersion }
+  def domVersion: Target[String] = Task { "2.8.0" }
+  def scalaJsCompilerVersion = "2.13.14"
 
-  override def esFeatures: T[ESFeatures] =
-    ESFeatures.Defaults.copy(esVersion = ESVersion.ES2021)
+  override def mvnDeps = Task {
+    super.mvnDeps() ++ Seq(
+      mvn"org.scala-js::scalajs-dom::${domVersion()}"
+      // mvn"org.scala-js:scalajs-library_2.13:${scalaJSVersion()}" shoudl be covered by mandatory ivyDeps
+    ) ++ super.mandatoryMvnDeps()
+  }
 
-  /** Replace with JSToolsClasspath???
+  // /** Does this do anything?
+  //   */
+
+  // override def esFeatures: T[ESFeatures] =
+  //   ESFeatures.Defaults.copy(esVersion = ESVersion.ES2021)
+
+  /** Replace waskith JSToolsClasspath???
     *
     * @return
     */
-  val jsclasspath = T {
+  def jsclasspath = Task {
     toArgument(runClasspath().map(_.path))
   }
 
-  val jsLinkerClassPath = T {
-    toArgument(linkerLibs().map(_.path))
-  }
+  def jsLinkerClassPath = linkerLibs().map(_.map(_.path))      
 
-  def mdocJsProperties: T[PathRef] = T {
-    val mdocPropsFile = T.dest / "mdoc.properties"
+  def mdocJsProperties: Task.Simple[PathRef] = Task { 
+    val mdocPropsFile = Task.dest / "mdoc.properties"    
 
-    val jsScalacOptions: String = artifactScalaVersion() match {
-      case "3" => "-scalajs"
-      case _ =>
-        scalaJsCompilerResolved().map(_.path).map(p => s"-Xplugin:$p").head
-    }
+    val paths = linkerLibs()()
 
     val mdocProps: Map[String, String] = Map(
-      "js-scalac-options" -> (List(jsScalacOptions) ++ scalacOptions())
+      "js-scalac-options" -> (List("-scalajs") ++ scalacOptions())
         .mkString(" "),
-      "js-linker-classpath" -> toArgument(linkerLibs().map(_.path)),
+      "js-linker-classpath" -> toArgument(paths.map(_.path)),
       "js-classpath" -> toArgument(runClasspath().map(_.path)),
       "js-module-kind" -> jsModuleKind()
       // "js-out-prefix" -> "_assets/js"
@@ -75,23 +76,23 @@ trait SiteJSModule extends ScalaJSModule {
       mdocPropsFile,
       mdocProps.map { case (k, v) => s"$k=$v" }.mkString("\n")
     )
-    PathRef(T.dest)
+    PathRef(Task.dest)
   }
 
   def jsModuleKind: T[String] = "ESModule"
 
-  protected def linkerDependency = T.task {
+  protected def linkerDependency = Task {
     val sjs = scalaJSVersion()
     artifactScalaVersion() match {
       case "3" =>
-        Agg(
-          ivy"org.scala-js:scalajs-linker_2.13:$sjs",
-          ivy"org.scalameta:mdoc-js-worker_3:${mdocVersion()}"
+        Seq(
+          mvn"org.scala-js:scalajs-linker_2.13:$sjs",
+          mvn"org.scalameta:mdoc-js-worker_3:${mdocVersion()}"
         )
       case other =>
-        Agg(
-          ivy"org.scala-js:scalajs-linker_2.13:$sjs",
-          ivy"org.scalameta:mdoc-js-worker_2.13:${mdocVersion()}"
+        Seq(
+          mvn"org.scala-js:scalajs-linker_2.13:$sjs",
+          mvn"org.scalameta:mdoc-js-worker_2.13:${mdocVersion()}"
         )
     }
   }
@@ -99,14 +100,14 @@ trait SiteJSModule extends ScalaJSModule {
   /** Follows mdocs documentation, i.e. intransitive
     */
 
-  def scala2JsCompilerIntransitive: Task[Agg[BoundDep]] = T.task {
+  def scala2JsCompilerIntransitive: Task[Seq[BoundDep]] = Task {
     val sjs = scalaJSVersion()
     artifactScalaVersion() match {
-      case "3" => Agg[BoundDep]()
+      case "3" => Seq[BoundDep]()
       case other =>
-        Agg(
+        Seq(
           Lib.depToBoundDep(
-            ivy"org.scala-js:scalajs-compiler_2.13.14:$sjs"
+            mvn"org.scala-js:scalajs-compiler_2.13.14:$sjs"
               .exclude("*" -> "*"),
             scalaVersion()
           )
@@ -114,53 +115,49 @@ trait SiteJSModule extends ScalaJSModule {
     }
   }
 
-  def scalaJsCompilerResolved: Task[Agg[PathRef]] = T {
-    resolveDeps(scala2JsCompilerIntransitive)
+  def linkerLibs() = Task {
+    defaultResolver().classpath(linkerDependency())
   }
 
-  protected def linkerDepBound: T[Agg[BoundDep]] =
-    linkerDependency().map(Lib.depToBoundDep(_, scalaVersion()))
-
-  def linkerLibs: Target[Agg[PathRef]] = T { resolveDeps(linkerDepBound) }
-
-  def mdocJSDependency = T.task {
+  def mdocJSDependency = Task {
     val mdocV = mdocVersion()
     val dep = artifactScalaVersion() match {
-      case "3"   => Agg(ivy"org.scalameta:mdoc-js-worker_3:$mdocV")
-      case other => Agg(ivy"org.scalameta:mdoc-js-worker_$other:$mdocV")
+      case "3"   => Seq(mvn"org.scalameta:mdoc-js-worker_3:$mdocV")
+      case other => Seq(mvn"org.scalameta:mdoc-js-worker_$other:$mdocV")
     }
   }
 
-  override def scalacPluginIvyDeps = super.scalacPluginIvyDeps() ++ Agg(
-    ivy"org.scala-js:scalajs-compiler_2.13.14:${scalaJSVersion()}"
+  override def scalacPluginMvnDeps = super.scalacPluginMvnDeps() ++ Seq(
+    mvn"org.scala-js:scalajs-compiler_2.13.14:${scalaJSVersion()}"
   )
 
-  def mdocDep: T[Agg[Dep]] = T {
+  def mdocDep: T[Agg[Dep]] = Task {
     artifactScalaVersion() match {
       case "3" =>
-        Agg(
-          ivy"org.scalameta::mdoc-js:${mdocVersion()}",
-          ivy"org.scalameta::mdoc:${mdocVersion()}"
+        Seq(
+          mvn"org.scalameta::mdoc-js:${mdocVersion()}",
+          mvn"org.scalameta::mdoc:${mdocVersion()}"
             .exclude("org.scala-lang" -> "scala3-compiler_3")
             .exclude("org.scala-lang" -> "scala3-library_3"),
-          ivy"org.scala-lang::scala3-compiler:${scalaVersion()}",
-          ivy"org.scala-lang:scala3-library:${scalaVersion()}",
-          ivy"org.scala-lang::tasty-core:${scalaVersion()}",
-          ivy"org.scala-lang.modules::scala-xml:2.1.0"
+          mvn"org.scala-lang::scala3-compiler:${scalaVersion()}",
+          mvn"org.scala-lang:scala3-library:${scalaVersion()}",
+          mvn"org.scala-lang::tasty-core:${scalaVersion()}",
+          mvn"org.scala-lang.modules::scala-xml:2.1.0"
         )
       case other =>
         Agg(
-          ivy"org.scalameta:mdoc-js_2.13:${mdocVersion()}",
-          ivy"org.scala-lang:scala-compiler:${scalaVersion()}",
-          ivy"org.scalajs:scalajs-dom_sjs1_2.13:2.8.0",
-          ivy"org.scalameta:mdoc-js-worker_2.13:${mdocVersion()}"
+          mvn"org.scalameta:mdoc-js_2.13:${mdocVersion()}",
+          mvn"org.scala-lang:scala-compiler:${scalaVersion()}",
+          mvn"org.scalajs:scalajs-dom_sjs1_2.13:2.8.0",
+          mvn"org.scalameta:mdoc-js-worker_2.13:${mdocVersion()}"
         )
     }
 
   }
 
-  def mdocDepBound: T[Agg[BoundDep]] =
+  def mdocDepBound = Task {
     mdocDep().map(Lib.depToBoundDep(_, scalaVersion()))
+  }
 
-  def mDocLibs: Target[Agg[PathRef]] = T { resolveDeps(mdocDepBound) }
+  def mDocLibs = Task { Lib.resolveDependencies(repositories().map(MavenRepository(_)), mdocDepBound(), false) }
 }

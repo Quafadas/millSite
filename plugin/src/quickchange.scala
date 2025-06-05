@@ -1,6 +1,7 @@
 package io.github.quafadas.millSite
 
-import mill.api.PathRef
+import mill.define.PathRef
+
 
 /** @param docs
   *   \- Governs caching

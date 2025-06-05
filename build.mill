@@ -1,51 +1,48 @@
-// mill plugins
-import $ivy.`de.tototec::de.tobiasroeser.mill.vcs.version::0.4.0`
-// Run integration tests with mill
-import $ivy.`de.tototec::de.tobiasroeser.mill.integrationtest::0.7.1`
+//| mill-version: 1.0.0-RC1-jvm
+//| mill-jvm-version: 21
+//| repositories: [https://packages.schroders.com/artifactory/maven]
 
-import de.tobiasroeser.mill.integrationtest._
-import de.tobiasroeser.mill.vcs.version._
+import mill.util.BuildInfo.{millVersion, millBinPlatform}
+
 import mill.{Agg, PathRef, T}
-import mill.define.{Cross, Module, Target}
-import mill.modules.Util
-import mill._
-import mill.scalalib._
-import mill.scalalib.publish._
+import mill.*
+import mill.scalalib.*
+import mill.scalalib.publish.*
 import mill.api.Result
 import mill.util.Jvm.createJar
+import mill.define.Task.Simple.create
 
-import mill.main.BuildInfo.millVersion
+// mill mill.bsp.BSP/install
+// mill __.compiledClassesAndSemanticDbFiles
+object plugin extends ScalaModule with PublishModule:
+  def platformSuffix = s"_mill$millBinPlatform"
 
-object plugin extends ScalaModule with PublishModule {
+  def scalaVersion = "3.7.0"
 
-  def millPlatform: T[String] = "0.12"
-
-  def millVersion: T[String] = "0.12.0"
-
-  def scalaVersion: T[String] = "2.13.14"
-
-  def scalaArtefactVersion: T[String] =
+  def scalaArtefactVersion: Task[String] =
     scalaVersion.map(_.split("\\.").take(2).mkString("."))
 
   override def artifactName = "millSite"
 
-  override def compileIvyDeps = Agg(
-    ivy"com.lihaoyi::mill-main:${millVersion()}",
-    ivy"com.lihaoyi::mill-scalalib:${millVersion()}",
-    ivy"com.lihaoyi::mill-scalajslib:${millVersion()}"
-  )
+  // override def compileMvnDeps = Seq(
+  //   mvn"com.lihaoyi::mill-libs-main::$millVersion",
+  //   mvn"com.lihaoyi::mill-libs-scalalib::$millVersion",
+  //   mvn"com.lihaoyi::mill-libs-scalajslib::$millVersion"
+  // )
 
-  def ivyDeps = Agg(
-    ivy"de.tototec:de.tobiasroeser.mill.vcs.version_mill0.11_2.13:0.4.0",
-    ivy"com.lihaoyi:mill-dist:${millVersion()}",
-    // ivy"io.github.quafadas::sjsls:0.2.5"
-  )
+  def mvnDeps = Task {
+    Seq(
+      mvn"com.lihaoyi::mill-libs:$millVersion"
+      // mvn"io.github.quafadas::sjsls:0.2.5"
+    )
+  }
 
-  def artifactSuffix = s"_mill${millPlatform()}_${scalaArtefactVersion()}"
+  def artifactSuffix = s"${platformSuffix()}_${scalaArtefactVersion()}"
 
-  def publishVersion = VcsVersion.vcsState().format()
+  // def publishVersion = VcsVersion.vcsState().format()
+  def publishVersion = "DONTUSEME"
 
-  override def pomSettings = T {
+  override def pomSettings = Task {
     PomSettings(
       description = "Mill plugin for mdoc, static site generation",
       organization = "io.github.quafadas",
@@ -58,48 +55,57 @@ object plugin extends ScalaModule with PublishModule {
     )
   }
 
-  object test extends ScalaTests with TestModule.Utest {
-    def ivyDeps = Agg(ivy"com.lihaoyi::mill-testkit:${millVersion()}")
-    def forkEnv = Map("MILL_EXECUTABLE_PATH" -> millExecutable.assembly().path.toString)
+  object test extends ScalaTests with TestModule.Utest:
+    def mvnDeps = Seq(mvn"com.lihaoyi::mill-libs-testrunner::${millVersion()}")
 
-    object millExecutable extends JavaModule{
-      def ivyDeps = Agg(ivy"com.lihaoyi:mill-dist:${millVersion()}")
+    def forkEnv = Map(
+      "MILL_EXECUTABLE_PATH" -> millExecutable.assembly().path.toString
+    )
+
+    object millExecutable extends JavaModule:
+      def mvnDeps = Seq(mvn"com.lihaoyi::mill-libs::${millVersion()}")
       def mainClass = Some("mill.runner.client.MillClientMain")
       def resources = Task {
-        val p = Task.dest / "mill/local-test-overrides" / s"com.lihaoyi-${plugin.artifactId()}"
-        os.write(p, plugin.localClasspath().map(_.path).mkString("\n"), createFolders = true)
+        val p =
+          Task.dest / "mill/local-test-overrides" / s"com.lihaoyi-${plugin.artifactId()}"
+        os.write(
+          p,
+          plugin.localClasspath().map(_.path).mkString("\n"),
+          createFolders = true
+        )
         Seq(PathRef(Task.dest))
       }
-    }
-  }
-}
+    end millExecutable
+  end test
+end plugin
 
 // object itest extends MillIntegrationTestModule {
 //   def millTestVersion = plugin.millVersion()
 //   def pluginsUnderTest = Seq(plugin)
 // }
 
-object site extends ScalaModule {
-  def latestVersion: T[String] = T {
-    VcsVersion.vcsState().lastTag.getOrElse("0.0.0").replace("v", "")
-  }
+object site extends ScalaModule:
+  // def latestVersion: T[String] = Task {
+  //   VcsVersion.vcsState().lastTag.getOrElse("0.0.0").replace("v", "")
+  // }
 
-  def scalaVersion: T[String] = "3.3.5"
+  def scalaVersion: T[String] = "3.7.0"
 
-  def sitePath: T[os.Path] = T { docJar().path / os.up / "javadoc" }
+  def sitePath: T[os.Path] = Task(docJar().path / os.up / "javadoc")
 
-  def sitePathString: T[String] = T { sitePath().toString() }
+  def sitePathString: T[String] = Task(sitePath().toString())
 
-  override def scalaDocOptions = T {
+  override def scalaDocOptions = Task {
 
     super.scalaDocOptions() ++ Seq(
-      "-project-version",
-      latestVersion(),
+      // "-project-version",
+      // TODO: Bring back
+      // latestVersion(),
       s"-social-links:github::${plugin.pomSettings().url}"
     )
   }
 
-  def serveLocal() = T.command {
+  def serveLocal() = Task.Command {
     os.proc(
       "npm",
       "browser-sync",
@@ -110,5 +116,4 @@ object site extends ScalaModule {
       "-w"
     ).call(stdout = os.Inherit)
   }
-
-}
+end site
