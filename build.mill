@@ -1,6 +1,5 @@
 //| mill-version: 1.0.0-RC1-jvm
 //| mill-jvm-version: 21
-//| repositories: [https://packages.schroders.com/artifactory/maven]
 
 import mill.util.BuildInfo.{millVersion, millBinPlatform}
 
@@ -56,25 +55,34 @@ object plugin extends ScalaModule with PublishModule:
   }
 
   object test extends ScalaTests with TestModule.Utest:
-    def mvnDeps = Seq(mvn"com.lihaoyi::mill-libs-testrunner::${millVersion()}")
-
-    def forkEnv = Map(
-      "MILL_EXECUTABLE_PATH" -> millExecutable.assembly().path.toString
+    def mvnDeps = Seq(
+      mvn"com.lihaoyi::mill-testkit::${millVersion}",
+      mvn"com.lihaoyi::upickle::4.1.0",
     )
 
+    def forkEnv = Task{
+      val artifact = s"${plugin.pomSettings().organization}-${plugin.artifactId()}"
+        .replaceAll("[.-]", "_")
+        .toUpperCase
+      val localClasspathString = plugin.localClasspath().map(_.path).mkString("\n")
+      Map(
+        "MILL_EXECUTABLE_PATH" -> millExecutable.assembly().path.toString
+      )
+    }
+
     object millExecutable extends JavaModule:
-      def mvnDeps = Seq(mvn"com.lihaoyi::mill-libs::${millVersion()}")
-      def mainClass = Some("mill.runner.client.MillClientMain")
-      def resources = Task {
-        val p =
-          Task.dest / "mill/local-test-overrides" / s"com.lihaoyi-${plugin.artifactId()}"
-        os.write(
-          p,
-          plugin.localClasspath().map(_.path).mkString("\n"),
-          createFolders = true
-        )
-        Seq(PathRef(Task.dest))
-      }
+      def mvnDeps = Seq(mvn"com.lihaoyi:mill-runner-launcher_3:$millVersion")
+      def mainClass = Some("mill.runner.client.MillLauncherMain")
+      // def resources = Task {
+      //   val p =
+      //     Task.dest / "mill/local-test-overrides" / s"com.lihaoyi-${plugin.artifactId()}"
+      //   os.write(
+      //     p,
+      //     plugin.localClasspath().map(_.path).mkString("\n"),
+      //     createFolders = true
+      //   )
+      //   Seq(PathRef(Task.dest))
+      // }
     end millExecutable
   end test
 end plugin

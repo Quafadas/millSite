@@ -26,9 +26,9 @@ val repos = "https://packages.schroders.com/artifactory/maven"
 
 trait SiteJSModule extends ScalaJSModule {
 
-  override def repositories: T[Seq[String]] = Task {
-    Seq(
-      "https://packages.schroders.com/artifactory/maven"
+  override def repositories: T[Seq[String]] = Task{ 
+    super.repositories() ++ 
+    Seq(      
     )
   }
 

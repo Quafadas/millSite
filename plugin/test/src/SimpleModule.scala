@@ -3,10 +3,10 @@ package io.github.quafadas.millSite
 import mill._
 import mill.scalalib._
 import mill.scalalib.publish._
-import mill.testkit.TestBaseModule
+import mill.testkit.TestRootModule
 
 trait SimpleModule extends ScalaModule with PublishModule {
-  override def scalaVersion = T("3.3.4")
+  override def scalaVersion = Task("3.3.4")
   override def publishVersion: mill.T[String] = "0.0.0"
   override def pomSettings = PomSettings(
     "iTest.desc",
