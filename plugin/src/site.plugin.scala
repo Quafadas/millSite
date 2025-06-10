@@ -23,18 +23,18 @@ trait SiteModule extends ScalaModule:
       override def scalaVersion = Task("3.3.5")
       override def scalaJSVersion = Task("1.19.0")
 
-// TODO
-  // def latestVersion = Task {
-  //   VcsVersion.vcsState().lastTag.getOrElse("0.0.0").replace("v", "")
-  // }
+// // TODO
+//   // def latestVersion = Task {
+//   //   VcsVersion.vcsState().lastTag.getOrElse("0.0.0").replace("v", "")
+//   // }
 
-  // def scalaVersion = T("3.3.1")
+//   // def scalaVersion = T("3.3.1")
 
-  /** If we're given module dependancies, then assume we probably don't want to include source files in the doc site, in
-    * the published API docs.
-    */
-  def checkModuleModule: Unit =
-    if moduleDeps.length == 0 then throw new Exception("You must provide at least one module dependency")
+//   /** If we're given module dependancies, then assume we probably don't want to include source files in the doc site, in
+//     * the published API docs.
+//     */
+//   def checkModuleModule: Unit =
+//     if moduleDeps.length == 0 then throw new Exception("You must provide at least one module dependency")
 
   /** Finds everything that is going to get published
     *
@@ -99,9 +99,9 @@ trait SiteModule extends ScalaModule:
       browserSync()
     )
 
-  // def serveBackground() = Task.Command {
+  // def serveBackground = Task.Command {
   //   runBackgroundTask(
-  //     serve()
+  //     serve
   //   )
   // }
 
@@ -183,14 +183,16 @@ module.exports = {
     defaultResolver().classpath(mdocDep())
   }
 
-  // def transitiveDocSources: T[Seq[PathRef]] = Task {
-  //   // val transitiveDeps = moduleDeps.flatMap(_.moduleDeps).toSet.toSeq
-  //   val transitiveAPiSources =
-  //     T.traverse(findAllTransitiveDeps.toSeq)(_.docSources)().flatten
-  //   if (includeApiDocsFromThisModule) {
-  //     transitiveAPiSources ++ docSources()
-  //   } else transitiveAPiSources
-  // }
+  def transitiveDocSources: T[Seq[PathRef]] = Task {
+    // val transitiveDeps = moduleDeps.flatMap(_.moduleDeps).toSet.toSeq
+    // val transitiveAPiSources =
+    //   Task.Traverse(findAllTransitiveDeps.toSeq)(_.docSources)().flatten
+    // if (includeApiDocsFromThisModule) {
+    //   transitiveAPiSources ++ docSources()
+    // } else transitiveAPiSources
+
+    Task.traverse(findAllTransitiveDeps.toSeq)(_.docSources)().flatten
+  }
 
   def mdocSourceDir = Task.Source(mdocDir)
 
@@ -663,7 +665,7 @@ module.exports = {
 
   /** Overwrites md files which have been pre-processed by mdoc.
     */
-  override def docResources: Target[Seq[PathRef]] = Task {
+  override def docResources = Task {
     val out = super.docResources()
     for pr <- out do os.copy.over(pr.path, Task.dest)
     end for
@@ -765,7 +767,7 @@ module.exports = {
 
       val checkCache = mdocSources_.map(_.sig).diff(cached.map(_.sig))
       val importMap = pathToImportMap().map(_.path.toIO.getAbsolutePath)
-      // println(checkCache)
+      println(checkCache)
       val toProceass = mdocSources_.filter { pr =>
         checkCache.contains(pr.sig)
       }
@@ -788,7 +790,7 @@ module.exports = {
           .toSeq ++ Seq("--classpath", toArgument(cp ++ rp)) ++ importMap.fold(
           Seq.empty[String]
         )(i => Seq("--import-map-path", i))
-        // Seq("--js-classpath", jsSiteModule.jsclasspath() )
+        Seq("--js-classpath", jsSiteModule.jsclasspath() )
 
         val arg1 = Result.create(
           mill.util.Jvm.callProcess(
@@ -805,15 +807,15 @@ module.exports = {
         arg1
       else Result.Success("No mdoc sources found")
 
-    // if (os.exists(mdoccdDir / "_docs" / "_assets")) {
-    //   os.remove.all(mdoccdDir / "_assets")
-    //   os.move(
-    //     mdoccdDir / "_docs" / "_assets",
-    //     mdoccdDir / "_assets",
-    //     replaceExisting = true,
-    //     createFolders = true
-    //   )
-    // }
+    if (os.exists(mdoccdDir / "_docs" / "_assets")) {
+      os.remove.all(mdoccdDir / "_assets")
+      os.move(
+        mdoccdDir / "_docs" / "_assets",
+        mdoccdDir / "_assets",
+        replaceExisting = true,
+        createFolders = true
+      )
+    }
 
     PathRef(mdoccdDir)
   }

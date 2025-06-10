@@ -5,25 +5,32 @@ import mill.testkit.IntegrationTester
 import utest._
 import mill.define.Task
 import mill.scalalib.ScalaModule
+import mill.Args
+import mill.define.Task.Command
+import _root_.mill.util.TokenReaders.given
+import _root_.mill.define.JsonFormatters.given
+
 
 object SimpleTest extends TestSuite {
 
+  
+  object wrapper extends TestRootModule {
+
+    def millDiscover = mill.define.Discover[this.type]
+    object foo extends SimpleModule:
+      override def scalaVersion = "3.3.4"
+    end foo
+
+    object simples extends ScalaModule with SiteModule:
+      override def scalaVersion = "3.3.4"
+      override def moduleDeps = Seq(foo)
+    end simples
+  }
+
   def tests: Tests = Tests {
+
+
     test("simple") {
-
-      // object wrapper extends TestRootModule {
-
-      //   object foo extends SimpleModule {
-      //     override def scalaVersion = "3.3.4"
-      //   }
-
-      //   object simples extends ScalaModule with SiteModule {
-      //     override def scalaVersion = "3.3.4"
-      //     override def moduleDeps = Seq(foo)
-
-      //   }
-
-      // }
 
       val resourceFolder = os.Path(sys.env("MILL_TEST_RESOURCE_DIR"))
       val tester = new IntegrationTester(
