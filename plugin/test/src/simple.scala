@@ -3,12 +3,11 @@ package io.github.quafadas.millSite
 import mill.testkit.{TestRootModule, UnitTester}
 import mill.testkit.IntegrationTester
 import utest._
-import mill.define.Task
+import mill.api.Task
 import mill.scalalib.ScalaModule
 import mill.Args
-import mill.define.Task.Command
+import mill.api.Task
 import _root_.mill.util.TokenReaders.given
-import _root_.mill.define.JsonFormatters.given
 
 
 object SimpleTest extends TestSuite {
@@ -16,13 +15,13 @@ object SimpleTest extends TestSuite {
   
   object wrapper extends TestRootModule {
 
-    def millDiscover = mill.define.Discover[this.type]
+    def millDiscover = mill.api.Discover[this.type]
     object foo extends SimpleModule:
-      override def scalaVersion = "3.3.4"
+      override def scalaVersion = "3.3.5"
     end foo
 
-    object simples extends ScalaModule with SiteModule:
-      override def scalaVersion = "3.3.4"
+    object simples extends ScalaModule with MdocModule:
+      override def scalaVersion = "3.3.5"
       override def moduleDeps = Seq(foo)
     end simples
   }

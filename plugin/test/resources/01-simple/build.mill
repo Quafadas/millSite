@@ -1,5 +1,5 @@
-//| mvnDeps:
-//| - io.github.quafadas::millSite::0.0.1
+//| mill-version: 1.0.3
+//| mill-jvm-version: 21
 
 package build
 
@@ -13,7 +13,7 @@ object foo extends io.github.quafadas.millSite.SimpleModule {
 }
 
 // Single module setup
-object simples extends SiteModule {
+object simples extends MdocModule {
   override def scalaVersion = foo.scalaVersion()
   def moduleDeps = Seq(foo)
 }

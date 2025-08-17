@@ -6,7 +6,7 @@ import mill.scalalib.publish._
 import mill.testkit.TestRootModule
 
 trait SimpleModule extends ScalaModule with PublishModule {
-  override def scalaVersion = Task("3.3.4")
+  override def scalaVersion = Task("3.3.5")
   override def publishVersion: mill.T[String] = "0.0.0"
   override def pomSettings = PomSettings(
     "iTest.desc",

@@ -6,8 +6,8 @@ import mill.scalajslib._
 
 import mill.api.Result
 import mill.util.Jvm.createJar
-import mill.define.PathRef
-import mill.scalalib.api.CompilationResult
+import mill.api.PathRef
+
 import coursier.maven.MavenRepository
 import scala.util.Try
 import mill.scalalib.publish.PomSettings
@@ -17,10 +17,6 @@ import os.SubPath
 import ClasspathHelp._
 import mill.scalajslib.api.ESFeatures
 import mill.scalajslib.api.ESVersion
-
-object Versions {
-  val mdocVersion = "2.7.1"  
-}
 
 val repos = "https://packages.schroders.com/artifactory/maven"
 
@@ -32,8 +28,8 @@ trait SiteJSModule extends ScalaJSModule {
     )
   }
 
-  def mdocVersion: Target[String] = Task { Versions.mdocVersion }
-  def domVersion: Target[String] = Task { "2.8.0" }
+  def mdocVersion: Task[String] = Task { Versions.mdocVersion }
+  def domVersion: Task[String] = Task { Versions.domVersion }
   // def scalaJsCompilerVersion = "2.13.14"
 
   override def mvnDeps = Task {
@@ -145,7 +141,7 @@ trait SiteJSModule extends ScalaJSModule {
           mvn"org.scala-lang.modules::scala-xml:2.1.0"
         )
       case other =>
-        Agg(
+        Seq(
           mvn"org.scalameta:mdoc-js_2.13:${mdocVersion()}",
           mvn"org.scala-lang:scala-compiler:${scalaVersion()}",
           mvn"org.scalajs:scalajs-dom_sjs1_2.13:2.8.0",
