@@ -77,7 +77,7 @@ trait MdocModule extends ScalaModule:
 
   def mdocDir = super.moduleDir / "docs"
 
-  def compileCpArg: T[Seq[String]] = Task {
+  def compileCpArg: Task[Seq[String]] = Task {
     Seq(
       "-classpath",
       compileClasspath().iterator
@@ -88,16 +88,15 @@ trait MdocModule extends ScalaModule:
   }
 
 
-  def scalaLibrary: T[Dep] = Task(
+  def scalaLibrary = Task(
     mvn"org.scala-lang:scala-library:${scalaVersion}"
   )
 
-  def mdocSources: T[Seq[PathRef]] = Task {
-    os.walk(mdocDir)
-      .filter(os.isFile)
-      .filter(_.toIO.getName().contains("mdoc.md"))
-      .map(PathRef(_))
+  def mdocSources_ = Task.Sources {
+    mdocDir
   }
+
+  def mdocSources = Task{mdocSources_().filter(_.path.toIO.getName().contains("mdoc.md"))}
 
   def pathToImportMap: T[Option[PathRef]] = None
 
@@ -117,7 +116,7 @@ trait MdocModule extends ScalaModule:
     // val deps = mvnDeps()
     // val deps2 = defaultResolver().classpath(deps).map(_.path)
     val dir = Task.dest.toIO.getAbsolutePath
-    val mdocSources_ = mdocSources().filter(pr => os.isFile(pr.path))
+    val mdocSources_ = mdocSources()
     val cached = upickle.default.read[Seq[PathRef]](os.read(cacheFile))
 
     val cachedList =
@@ -167,7 +166,7 @@ trait MdocModule extends ScalaModule:
               Some(forkWorkingDir()) // classpath can be long. On windows will barf without passing as Jar
           )
         )
-        os.write.over(cacheFile, upickle.default.write(mdocSources_))
+        os.write.over(cacheFile, upickle.default.write(mdocSources()))
         arg1
       else Result.Success("No mdoc sources found")
 

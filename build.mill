@@ -20,7 +20,7 @@ import mill.util.Jvm.createJar
 object plugin extends ScalaModule with PublishModule:
   def platformSuffix = s"_mill$millBinPlatform"
 
-  def scalaVersion = "3.7.0"
+  def scalaVersion = "3.7.2"
 
   def scalaArtefactVersion: Task[String] =
     scalaVersion.map(_.split("\\.").take(2).mkString("."))
@@ -59,35 +59,29 @@ object plugin extends ScalaModule with PublishModule:
     )
   }
 
-  object test extends ScalaTests with TestModule.Utest:
+  object unit extends ScalaTests with TestModule.Utest:
+    override def moduleDeps: Seq[JavaModule] = Seq(plugin)
     def mvnDeps = Seq(
       mvn"com.lihaoyi::mill-testkit::${millVersion}",
       mvn"com.lihaoyi::upickle::4.1.0"
     )
 
-    def forkEnv = Task{
-      val artifact = s"${plugin.pomSettings().organization}-${plugin.artifactId()}"
-        .replaceAll("[.-]", "_")
-        .toUpperCase
-      val localClasspathString = plugin.localClasspath().map(_.path).mkString("\n")
+  object test extends ScalaTests, TestModule.Utest:
+    def mvnDeps = Seq(
+      mvn"com.lihaoyi::mill-testkit::${millVersion}",
+      mvn"com.lihaoyi::upickle::4.1.0"
+    )
+
+    def forkEnv = Task {
       Map(
-        "MILL_EXECUTABLE_PATH" -> millExecutable.assembly().path.toString
+        "MILL_EXECUTABLE_PATH" -> millExecutable.assembly().path.toString,
+        "MILL_USER_TEST_REPO" -> publishLocalTestRepo().path.toString
       )
     }
 
     object millExecutable extends JavaModule:
       def mvnDeps = Seq(mvn"com.lihaoyi:mill-runner-launcher_3:$millVersion")
       def mainClass = Some("mill.runner.client.MillLauncherMain")
-      // def resources = Task {
-      //   val p =
-      //     Task.dest / "mill/local-test-overrides" / s"com.lihaoyi-${plugin.artifactId()}"
-      //   os.write(
-      //     p,
-      //     plugin.localClasspath().map(_.path).mkString("\n"),
-      //     createFolders = true
-      //   )
-      //   Seq(PathRef(Task.dest))
-      // }
     end millExecutable
   end test
 end plugin
