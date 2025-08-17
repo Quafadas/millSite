@@ -44,6 +44,8 @@ trait SiteModule extends Module:
     laika.generateSite()
   }
 
+  
+
 //   val jsSiteModule: SiteJSModule =
 //     new SiteJSModule:
 //       override def scalaVersion = Task("3.3.5")
