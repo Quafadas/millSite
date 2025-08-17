@@ -1,7 +1,11 @@
-// package io.github.quafadas.millSite
+package io.github.quafadas.millSite
 
-// import mill.*
-// import mill.scalalib.*
+import mill.*
+import mill.scalalib.*
+import os.Path
+import mill.api.Task.Simple
+import fs2.concurrent.Topic
+import cats.effect.IO
 // import mill.scalajslib.*
 // import coursier.maven.MavenRepository
 // import mill.api.Result
@@ -15,8 +19,30 @@
 // import mill.scalalib.publish.VersionControl
 // import os.SubPath
 // import ClasspathHelp.*
+import cats.effect.unsafe.implicits.global
 
-// trait SiteModule extends ScalaModule:
+trait SiteModule extends Module:
+
+  val updateServer = Topic[IO, Unit].unsafeRunSync()  
+
+  lazy val mdocModule : MdocModule = ???
+
+  lazy val unidocs : UnidocModule = ???
+
+  lazy val laika = new LaikaPlugin {
+
+    override def docDir: Path = mdocModule.mdocDir
+    override def inputDir: Simple[PathRef] = mdocModule.mdoc()
+    override def baseUrl: Simple[String] = 
+      unidocs.unidocSourceUrl().getOrElse("no path")      
+      
+  }
+
+  def siteGen = Task{
+    val mdocs = mdocModule.mdoc()
+    val api = unidocs.unidocSite()
+    laika.generateSite()
+  }
 
 //   val jsSiteModule: SiteJSModule =
 //     new SiteJSModule:
