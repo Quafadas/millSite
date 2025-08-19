@@ -13,15 +13,19 @@ import laika.ast.Path.Root
 import mill.api.*
 import mill.scalalib.*
 import mill.api.Task.Simple
+import mill.api.BuildCtx
 
-trait LaikaModule extends Module {  
+
+trait LaikaModule extends Module {
 
   def inputDir: Simple[PathRef] = Task.Source(super.moduleDir / "docs")
 
   def baseUrl: Simple[String] = Task("https://my-docs/site")
 
-  def generateSite = 
+  def generateSite =
     Task{
+      println("Generate Site")
+      BuildCtx.withFilesystemCheckerDisabled {
       val transformer = Transformer
         .from(Markdown)
         .to(HTML)
@@ -33,7 +37,21 @@ trait LaikaModule extends Module {
           .site
             .topNavigationBar(
               homeLink = IconLink.internal(Root / "index.md", HeliumIcon.home))
-          .site.internalJS(Root / "refresh.js")
+          .site
+            .topNavigationBar(
+              homeLink = IconLink.external("https://github.com/Quafadas/live-server-scala-cli-js", HeliumIcon.github))
+          .site.inlineJS(
+            """
+const sse = new EventSource("/refresh/v1/sse");
+    sse.addEventListener("message", (e) => {
+    const msg = JSON.parse(e.data);
+
+    if ("KeepAlive" in msg) console.log("KeepAlive");
+
+    if ("PageRefresh" in msg) location.reload();
+    });
+            """
+          )
             .build
         ).build
 
@@ -44,8 +62,9 @@ trait LaikaModule extends Module {
         }
       res.unsafeRunSync()
 
-      PathRef(Task.dest)
 
+      PathRef(Task.dest)
+      }
     }
-    
+
 }

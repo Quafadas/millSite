@@ -23,6 +23,9 @@ import cats.effect.unsafe.implicits.global
 import io.github.quafadas.sjsls.LiveServer.LiveServerConfig
 import cats.effect.ExitCode
 import scala.util.{Try, Success, Failure}
+import scala.concurrent.Future
+import mill.api.BuildCtx
+implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
 
 trait SiteModule extends Module:
 
@@ -30,40 +33,35 @@ trait SiteModule extends Module:
 
   lazy val defaultInternalDocDir = super.moduleDir / "docs"
 
-  lazy val mdocModule : MdocModule = new MdocModule {
+  val mdocModule : MdocModule = new MdocModule {
     override def scalaVersion: Simple[String] = "3.7.2"
     override def mdocDir = defaultInternalDocDir
+    override def docDir: Simple[PathRef] = Task.Source(mdocDir)
   }
 
-  lazy val unidocs: UnidocModule = new UnidocModule{
+  val unidocs: UnidocModule = new UnidocModule{
     override def scalaVersion: Simple[String] = "3.7.2"
     override def unidocDocumentTitle: Simple[String] = "Unidoc Title [hint: override def unidocDocumentTitle: Simple[String] ]"
   }
 
-  lazy val laika = new LaikaModule {    
+  val laika = new LaikaModule {
     override def inputDir: Simple[PathRef] = mdocModule.mdoc()
-    override def baseUrl: Simple[String] = 
-      unidocs.unidocSourceUrl().getOrElse("no path")      
-      
+    override def baseUrl: Simple[String] =
+      unidocs.unidocSourceUrl().getOrElse("no path")
+
   }
 
   def siteGen = Task{
+    println("running site gen")
     val mdocs = mdocModule.mdoc()
     // val api = unidocs.unidocSite()
-    laika.generateSite()
+    val site = laika.generateSite()
+    updateServer.publish1(println("publishing update"))
+    site
   }
 
-  def assets = Task {
-    os.write.over( Task.dest / "refresh.js", """const sse = new EventSource("/refresh/v1/sse");
-    sse.addEventListener("message", (e) => {
-    const msg = JSON.parse(e.data);
-
-    if ("KeepAlive" in msg) console.log("KeepAlive");
-
-    if ("PageRefresh" in msg) location.reload();
-    });"""  )
-    
-    PathRef(Task.dest)
+  def sitePathOnly = Task {
+    siteGen().path.toString
   }
 
   def port = Task {
@@ -78,35 +76,44 @@ trait SiteModule extends Module:
     "debug"
   }
 
+  // def assets = Task {
+  //   println("site assets")
+  //   os.copy.over(laika.assets().path, Task.dest)
+  //   PathRef(Task.dest)
+  // }
+
   def lcs = Task.Worker{
     LiveServerConfig(
           baseDir = None, // typically this would be a build tool here
-          outDir = Some(assets().path.toString()),
+          // outDir = Some(assets().path.toString()),
           port = com.comcast.ip4s.Port.fromInt(port()).getOrElse(throw new IllegalArgumentException(s"invalid port: ${port()}")),
-          indexHtmlTemplate = Some(siteGen().path.toString()),
+          indexHtmlTemplate = Some(sitePathOnly()),
           buildTool = io.github.quafadas.sjsls.None(),
           openBrowserAt = "/index.html",
           preventBrowserOpen = !openBrowser()
         )
   }
 
-  def serve = Task.Worker{ 
-    assets()   
+  def serve = Task.Worker{
+    BuildCtx.withFilesystemCheckerDisabled {
+    // assets()
     val lcs_ = lcs()
     println(lcs_)
     val attempt = Try{
       io.github.quafadas.sjsls.LiveServer.main(lcs_).useForever
         .as(ExitCode.Success)
-        .unsafeRunSync()
+        .unsafeToFuture()
     }
 
     attempt match {
-      case Success(ls) => 
+      case Success(ls) =>
         println(s"Server started successfully. Browse at - http://localhost:${port()}/")
         ls
-      case Failure(e) => println(s"Failed to start server: ${e}")
+      case Failure(e) =>
+        println(s"Failed to start server: ${e}")
+        Future(ExitCode.Error)
     }
-
+    }
   }
 
 end SiteModule

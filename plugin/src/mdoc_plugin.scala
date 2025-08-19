@@ -88,17 +88,21 @@ trait MdocModule extends ScalaModule:
   def docDir: Simple[PathRef] = Task.Source(mdocDir)
 
   def mdocFiles: Task[Seq[PathRef]] = Task {
+    println("mdoc files")
     os.walk(docDir().path)
     .filter(_.toString().endsWith("mdoc.md")).map(PathRef(_))
   }
 
-  def mdFiles: Task[Seq[PathRef]] = Task { os.walk(docDir().path).filter(f => !f.toString().endsWith("mdoc.md") && f.toString().endsWith(".md")).map(PathRef(_)) }
+  def mdFiles: Task[Seq[PathRef]] = Task {
+    println("mdFiles")
+    os.walk(docDir().path).filter(f => !f.toString().endsWith("mdoc.md") && f.toString().endsWith(".md")).map(PathRef(_))
+  }
 
   def pathToImportMap: T[Option[PathRef]] = None
 
   def mdoc = Task {
     val mdoccd = mdocOnly()
-    val others = mdFiles()    
+    val others = mdFiles()
 
     os.copy(mdoccd.path, Task.dest, mergeFolders = true)
     others.foreach {
@@ -109,8 +113,8 @@ trait MdocModule extends ScalaModule:
 
   /**
    * Generates the mdoc documentation for the module.
-   * 
-   * TODO: 
+   *
+   * TODO:
     - Mdoc JS
     - Caching
    */
@@ -132,7 +136,7 @@ trait MdocModule extends ScalaModule:
     val runCp = runClasspath().map(_.path)
     // val deps = mvnDeps()
     // val deps2 = defaultResolver().classpath(deps).map(_.path)
-    val toProcess = mdocFiles()    
+    val toProcess = mdocFiles()
     // val cached = upickle.default.read[Seq[PathRef]](os.read(cacheFile))
 
     // val cachedList =
@@ -146,10 +150,10 @@ trait MdocModule extends ScalaModule:
 
       // val checkCache = toProcess.map(_.sig).diff(cached.map(_.sig))
       val importMap = pathToImportMap().map(_.path.toIO.getAbsolutePath)
-      val scalaCOpts = scalacOptions()      
+      val scalaCOpts = scalacOptions()
       val dirParams = toProcess
           .map(_.path)
-          .map { pr =>            
+          .map { pr =>
             Seq(
               "--in",
               pr.toIO.getAbsolutePath,
@@ -165,7 +169,7 @@ trait MdocModule extends ScalaModule:
         ++ importMap.fold(Seq.empty[String])(i => Seq("--import-map-path", i))
         ++ (if scalaCOpts.nonEmpty then Seq("--scalac-options", scalaCOpts.mkString(" ")) else Seq.empty[String])
         // ++ Seq("--js-classpath", jsSiteModule.jsclasspath() )
-        
+
 
       // println("running mdoc")
       // println(dirParams.mkString("\n"))
@@ -175,7 +179,7 @@ trait MdocModule extends ScalaModule:
       // println(forkEnv().mkString("\n"))
       // println("FORK WORKING DIR")
       // println(forkWorkingDir())
-      Result.create(        
+      Result.create(
           mill.util.Jvm.callProcess(
             mainClass = "mdoc.Main",
             classPath = mdocLibs_,// ++ Seq(jsSiteModule.mdocJsProperties().path),
@@ -186,7 +190,7 @@ trait MdocModule extends ScalaModule:
             //   Some(Task.dest) // classpath can be long. On windows will barf without passing as Jar
           )
         )
-      
+
       else Result.Success("No mdoc sources found")
 
     // if (os.exists(mdoccdDir / "_docs" / "_assets")) {
