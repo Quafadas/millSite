@@ -89,32 +89,32 @@ trait MdocModule extends ScalaModule:
 
   def mdocFiles: Task[Seq[PathRef]] = Task {
     os.walk(docDir().path)
-    // .foreach{x =>
-    //   println(x.toNIO)
-    //   x
-    // }
     .filter(_.toString().endsWith("mdoc.md")).map(PathRef(_))
   }
 
   def mdFiles: Task[Seq[PathRef]] = Task { os.walk(docDir().path).filter(f => !f.toString().endsWith("mdoc.md") && f.toString().endsWith(".md")).map(PathRef(_)) }
 
-  def compileCpArg: Task[Seq[String]] = Task {
-    Seq(
-        "-classpath",
-        compileClasspath().iterator
-        .filter(_.path.ext != "pom")
-        .map(_.path)
-        .mkString(java.io.File.pathSeparator)
-    )
-  }
-
-  def scalaLibrary = Task(
-    mvn"org.scala-lang:scala-library:${scalaVersion}"
-  )
-
   def pathToImportMap: T[Option[PathRef]] = None
 
-  def mdoc: Task[PathRef] = Task.Worker {
+  def mdoc = Task {
+    val mdoccd = mdocOnly()
+    val others = mdFiles()    
+
+    os.copy(mdoccd.path, Task.dest, mergeFolders = true)
+    others.foreach {
+      f => os.copy(f.path, Task.dest / f.path.subRelativeTo(docDir().path), mergeFolders = true)
+    }
+    PathRef(Task.dest)
+  }
+
+  /**
+   * Generates the mdoc documentation for the module.
+   * 
+   * TODO: 
+    - Mdoc JS
+    - Caching
+   */
+  def mdocOnly: Task[PathRef] = Task.Worker {
 
     compile()
     // val cacheDir = Task.dest / "cache"
@@ -132,8 +132,7 @@ trait MdocModule extends ScalaModule:
     val runCp = runClasspath().map(_.path)
     // val deps = mvnDeps()
     // val deps2 = defaultResolver().classpath(deps).map(_.path)
-    val toProcess = mdocFiles()
-    println("In mdoc task")
+    val toProcess = mdocFiles()    
     // val cached = upickle.default.read[Seq[PathRef]](os.read(cacheFile))
 
     // val cachedList =
@@ -147,13 +146,10 @@ trait MdocModule extends ScalaModule:
 
       // val checkCache = toProcess.map(_.sig).diff(cached.map(_.sig))
       val importMap = pathToImportMap().map(_.path.toIO.getAbsolutePath)
-      val scalaCOpts = scalacOptions()
-      println("TASK DEST")
-      println(Task.dest)
+      val scalaCOpts = scalacOptions()      
       val dirParams = toProcess
           .map(_.path)
-          .map { pr =>
-            println((Task.dest / pr.subRelativeTo(mdocDir)).toIO.getAbsolutePath)
+          .map { pr =>            
             Seq(
               "--in",
               pr.toIO.getAbsolutePath,
@@ -166,20 +162,20 @@ trait MdocModule extends ScalaModule:
           .flatten
           .toSeq
         ++ Seq("--classpath", toArgument(runCp ++ cp))
-        // ++ importMap.fold(Seq.empty[String])(i => Seq("--import-map-path", i))
+        ++ importMap.fold(Seq.empty[String])(i => Seq("--import-map-path", i))
+        ++ (if scalaCOpts.nonEmpty then Seq("--scalac-options", scalaCOpts.mkString(" ")) else Seq.empty[String])
         // ++ Seq("--js-classpath", jsSiteModule.jsclasspath() )
-        // ++ scalaCOpts.fold(Seq.empty[String])(scOpts => Seq("--scalac-options", scOpts.mkString(" ")))
+        
 
-      println("running mdoc")
-      println(dirParams.mkString("\n"))
-      println("FORK ARGS")
-      println(forkArgs().mkString("\n"))
-      println("FORK ENV")
-      println(forkEnv().mkString("\n"))
-      println("FORK WORKING DIR")
-      println(forkWorkingDir())
-      val out = Result.create(
-        BuildCtx.withFilesystemCheckerDisabled {
+      // println("running mdoc")
+      // println(dirParams.mkString("\n"))
+      // println("FORK ARGS")
+      // println(forkArgs().mkString("\n"))
+      // println("FORK ENV")
+      // println(forkEnv().mkString("\n"))
+      // println("FORK WORKING DIR")
+      // println(forkWorkingDir())
+      Result.create(        
           mill.util.Jvm.callProcess(
             mainClass = "mdoc.Main",
             classPath = mdocLibs_,// ++ Seq(jsSiteModule.mdocJsProperties().path),
@@ -189,12 +185,8 @@ trait MdocModule extends ScalaModule:
             // cpPassingJarPath =
             //   Some(Task.dest) // classpath can be long. On windows will barf without passing as Jar
           )
-        }
-      )
-      println("mdoc done")
-      out
-        // os.write.over(cacheFile, upickle.default.write(docDir()))
-        // arg1
+        )
+      
       else Result.Success("No mdoc sources found")
 
     // if (os.exists(mdoccdDir / "_docs" / "_assets")) {

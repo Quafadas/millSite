@@ -25,7 +25,7 @@ jobs:
           java-version: 17
           distribution: 'temurin'
       - run: ./millw plugin.compile
-      - run: ./millw plugin.test
+      - run: ./millw plugin.unit
       - run: ./millw plugin.publishLocal
 
   publish:
@@ -40,7 +40,7 @@ jobs:
       - uses: actions/setup-java@main
         with:
           distribution: 'temurin'
-          java-version: 17
+          java-version: 21
 
       # - name: Setup GPG secrets
       #   run: |
@@ -64,7 +64,7 @@ jobs:
     steps:
       - uses: actions/setup-java@main
         with:
-          java-version: 17
+          java-version: 21
           distribution: 'temurin'
       - uses: actions/checkout@main
         with:

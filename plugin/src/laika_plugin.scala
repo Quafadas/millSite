@@ -14,11 +14,9 @@ import mill.api.*
 import mill.scalalib.*
 import mill.api.Task.Simple
 
-trait LaikaPlugin extends Module {
+trait LaikaModule extends Module {  
 
-  def docDir = super.moduleDir / "docs"
-
-  def inputDir: Simple[PathRef] = Task.Source(docDir)
+  def inputDir: Simple[PathRef] = Task.Source(super.moduleDir / "docs")
 
   def baseUrl: Simple[String] = Task("https://my-docs/site")
 
@@ -40,7 +38,7 @@ trait LaikaPlugin extends Module {
         ).build
 
       val res: IO[RenderedTreeRoot[IO]] = transformer.use { t =>
-          t.fromDirectory(docDir.toString())
+          t.fromDirectory(inputDir().path.toString())
             .toDirectory(Task.dest.toString())
             .transform
         }

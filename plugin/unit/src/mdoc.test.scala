@@ -7,51 +7,70 @@ import mill.util.TokenReaders.*
 import utest.*
 import mill.api.Task.Simple
 
-object UnitTests extends TestSuite {
+object MdocTests extends TestSuite {
   def tests: Tests = Tests {
-    test("mdocBasic") {
+    test("mdoc basic processes mdoc") {
       object build extends TestRootModule with MdocModule {
         override def scalaVersion: Simple[String] = "3.7.2"
 
         lazy val millDiscover = Discover[this.type]
       }
 
-      val resourceFolder = os.Path(sys.env("MILL_TEST_RESOURCE_DIR"))
-      println(resourceFolder)
-      UnitTester(build, resourceFolder / "mdoc_basic").scoped { eval =>
-        // Evaluating tasks by direct reference
-        println("--- CHECKING inputs")
-        val Right(compiled) = eval(build.compile) //
-        println(compiled)
-        val Right(aaaahhhh) = eval(build.docDir)
-        println(aaaahhhh)
-        os.walk(aaaahhhh.value.path).toSeq.foreach(println)
-        val Right(sources) = eval(build.mdocFiles)
-        println("mdoc files")
-        println(sources)
-        sources.value.foreach(println)
+      val resourceFolder = os.Path(sys.env("MILL_TEST_RESOURCE_DIR"))      
 
-        println("classPath")
-        println(eval(build.compileClasspath))
+      UnitTester(build, resourceFolder / "mdoc_basic").scoped { eval =>        
+        val Right(result) = eval(build.mdocOnly)
+        // println(result)
+        val resultPath = result.value.path
+        assert(          
+            os.exists(resultPath / "hi.mdoc.md")
+          )        
+        assert(          
+            os.exists(resultPath / "random" / "folder" / "nested.mdoc.md")
+          )
+        assert(
+          os.read.lines(resultPath / "hi.mdoc.md").mkString("").contains("FooPackage.FooObj.fooMethod")
+        )
+        assert(
+          os.read.lines(resultPath / "hi.mdoc.md").mkString("").contains("// res1: Int = 42")
+        )
+      }
+    }
 
-        println("WHERE FROM")
-        println()
-        println(eval("""compileClasspath"""))
+    test("Other files pass straight through basic setup") {
+      object build extends TestRootModule with MdocModule {
+        override def scalaVersion: Simple[String] = "3.7.2"
 
+        lazy val millDiscover = Discover[this.type]
+      }
+
+      val resourceFolder = os.Path(sys.env("MILL_TEST_RESOURCE_DIR"))      
+
+      UnitTester(build, resourceFolder / "mdoc_basic").scoped { eval =>        
+        val Right(result) = eval(build.mdFiles)
+        // println(result)
+        assert(result.value.length == 2)
+        
+      }
+    }
+
+    test("all files available") {
+      object build extends TestRootModule with MdocModule {
+        override def scalaVersion: Simple[String] = "3.7.2"
+
+        lazy val millDiscover = Discover[this.type]
+      }
+
+      val resourceFolder = os.Path(sys.env("MILL_TEST_RESOURCE_DIR"))      
+
+      UnitTester(build, resourceFolder / "mdoc_basic").scoped { eval =>        
         val Right(result) = eval(build.mdoc)
-        println("--- CHECKING outputs")
-        println(result)
-        os.walk(result.value.path).toSeq.foreach(println)
 
-        // // Evaluating tasks by passing in their Mill selector
-        // val Right(result2) = eval("resources")
-        // val Seq(pathrefs: Seq[PathRef]) = result2.value
-        // assert(
-        //   pathrefs.exists(pathref =>
-        //     os.exists(pathref.path / "line-count.txt") &&
-        //       os.read(pathref.path / "line-count.txt") == "18"
-        //   )
-        // )
+        assert(os.walk(result.value.path).filter(os.isFile).toSeq.size == 4)
+        // .foreach { file =>
+        //   println(s"Found file: ${file}")
+        // }
+
       }
     }
   }
