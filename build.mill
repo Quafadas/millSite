@@ -1,6 +1,6 @@
 //| mill-version: 1.0.3
 //| mill-jvm-version: 21
-// //| mvnDeps: 
+// //| mvnDeps:
 // //|   - io.github.quafadas::millSite::0.0.41-5-e9cfe1-DIRTYb4e16fea
 
 import mill.util.BuildInfo.{millVersion, millBinPlatform}
@@ -81,7 +81,7 @@ object plugin extends ScalaModule with PublishModule:
 
     object millExecutable extends JavaModule:
       def mvnDeps = Seq(mvn"com.lihaoyi:mill-runner-launcher_3:$millVersion")
-      def mainClass = Some("mill.runner.client.MillLauncherMain")
+      def mainClass = Some("mill.launcher.MillLauncherMain")
     end millExecutable
   end test
 end plugin

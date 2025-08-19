@@ -7,21 +7,20 @@ import mill.api.Task
 import mill.scalalib.ScalaModule
 import mill.Args
 import mill.api.Task
-import _root_.mill.util.TokenReaders.given
 
 
 object SimpleTest extends TestSuite {
 
-  
+
   object wrapper extends TestRootModule {
 
     def millDiscover = mill.api.Discover[this.type]
     object foo extends SimpleModule:
-      override def scalaVersion = "3.3.5"
+      override def scalaVersion = "3.7.2"
     end foo
 
     object simples extends ScalaModule with MdocModule:
-      override def scalaVersion = "3.3.5"
+      override def scalaVersion = "3.7.2"
       override def moduleDeps = Seq(foo)
     end simples
   }
@@ -41,7 +40,7 @@ object SimpleTest extends TestSuite {
       println(s"resourceFolder: $resourceFolder")
       val res1 = tester.eval("foo.compile")
       assert(res1.isSuccess)
-        
+
       // val simples = wrapper.simples
       // val Right(wrap2) = eval(wrapper.foo.compile)
       // val Right(cpath) = eval(simples.compileClasspath)
@@ -89,6 +88,6 @@ object SimpleTest extends TestSuite {
       // )
 
     }
-    
+
   }
 }
