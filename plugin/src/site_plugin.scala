@@ -33,6 +33,8 @@ trait SiteModule extends Module:
 
   lazy val defaultInternalDocDir = super.moduleDir / "docs"
 
+  def unidocDeps: Seq[JavaModule] = Seq.empty
+
   val mdocModule : MdocModule = new MdocModule {
     override def scalaVersion: Simple[String] = "3.7.2"
     override def mdocDir = defaultInternalDocDir
@@ -42,6 +44,7 @@ trait SiteModule extends Module:
   val unidocs: UnidocModule = new UnidocModule{
     override def scalaVersion: Simple[String] = "3.7.2"
     override def unidocDocumentTitle: Simple[String] = "Unidoc Title [hint: override def unidocDocumentTitle: Simple[String] ]"
+    override def moduleDeps: Seq[JavaModule] = unidocDeps
   }
 
   val laika = new LaikaModule {
@@ -95,24 +98,50 @@ trait SiteModule extends Module:
   }
 
   def serve = Task.Worker{
-    BuildCtx.withFilesystemCheckerDisabled {
-    // assets()
-    val lcs_ = lcs()
-    println(lcs_)
-    val attempt = Try{
-      io.github.quafadas.sjsls.LiveServer.main(lcs_).useForever
-        .as(ExitCode.Success)
-        .unsafeToFuture()
-    }
+    val p = port()
+    val osName = System.getProperty("os.name").toLowerCase
 
-    attempt match {
-      case Success(ls) =>
-        println(s"Server started successfully. Browse at - http://localhost:${port()}/")
-        ls
-      case Failure(e) =>
-        println(s"Failed to start server: ${e}")
-        Future(ExitCode.Error)
+    // Let's kill off anything that is a zombie on the port we want to use
+    if (osName.contains("win")) {
+      // Windows: try PowerShell Get-NetTCPConnection, fallback to netstat/taskkill
+      val ps = s"""
+      |if (Get-Command Get-NetTCPConnection -ErrorAction SilentlyContinue) {
+      |  $$pids = Get-NetTCPConnection -LocalPort $p -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique
+      |  if ($$pids) { $$pids | ForEach-Object { Stop-Process -Id $$_ -Force } }
+      |} else {
+      |  $$lines = netstat -ano | Select-String ":$p\\s"
+      |  $$pids = $$lines | ForEach-Object { ($$_ -split '\\s+')[-1] } | Select-Object -Unique
+      |  if ($$pids) { $$pids | ForEach-Object { taskkill /F /PID $$_ } }
+      |}
+      |""".stripMargin
+      os.proc("powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", ps).call(check = false)
+    } else {
+      // macOS/Linux: use lsof if available, fallback to fuser
+      val sh = s"""
+      |if command -v lsof >/dev/null 2>&1; then
+      |  pids=$$(lsof -ti tcp:$p 2>/dev/null)
+      |  if [ -n "$$pids" ]; then kill -9 $$pids; fi
+      |elif command -v fuser >/dev/null 2>&1; then
+      |  fuser -k -TERM $p/tcp || true
+      |  fuser -k -KILL $p/tcp || true
+      |fi
+      |""".stripMargin
+      os.proc("sh", "-lc", sh).call(check = false)
     }
+    BuildCtx.withFilesystemCheckerDisabled {
+      new RefreshServer(lcs())
+    }
+  }
+
+  class RefreshServer(lcs: LiveServerConfig) extends AutoCloseable {
+    val server  = io.github.quafadas.sjsls.LiveServer.main(lcs).allocated
+
+    server.map(_._1).unsafeRunSync()
+
+    override def close(): Unit = {
+      // This is the shutdown hook for http4s
+      println("Shutting down server...")
+      server.map(_._2).flatten.unsafeRunSync()
     }
   }
 

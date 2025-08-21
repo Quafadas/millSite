@@ -10,6 +10,10 @@ import cats.effect.unsafe.implicits.global
 import laika.config.LaikaKeys
 import laika.helium.config.*
 import laika.ast.Path.Root
+import laika.theme.ThemeProvider
+import laika.helium.Helium.*
+import laika.helium.Helium
+import laika.helium.config.*
 import mill.api.*
 import mill.scalalib.*
 import mill.api.Task.Simple
@@ -22,6 +26,28 @@ trait LaikaModule extends Module {
 
   def baseUrl: Simple[String] = Task("https://my-docs/site")
 
+  def helium = Task.Worker {
+    Helium.defaults
+      .site.topNavigationBar(
+        homeLink = IconLink.internal(Root / "index.md", HeliumIcon.home),
+        navLinks = Seq(
+          IconLink.external("https://example.com", HeliumIcon.github)
+        )
+      )
+      .site.inlineJS(
+"""const sse = new EventSource("/refresh/v1/sse");
+sse.addEventListener("message", (e) => {
+const msg = JSON.parse(e.data);
+
+if ("KeepAlive" in msg) console.log("KeepAlive");
+
+if ("PageRefresh" in msg) location.reload();
+});
+"""
+      )
+
+  }
+
   def generateSite =
     Task{
       println("Generate Site")
@@ -32,28 +58,8 @@ trait LaikaModule extends Module {
         .withConfigValue(LaikaKeys.siteBaseURL, baseUrl())
         .using(Markdown.GitHubFlavor)
         .parallel[IO]
-        .withTheme(
-          laika.helium.Helium.defaults
-          .site
-            .topNavigationBar(
-              homeLink = IconLink.internal(Root / "index.md", HeliumIcon.home))
-          .site
-            .topNavigationBar(
-              homeLink = IconLink.external("https://github.com/Quafadas/live-server-scala-cli-js", HeliumIcon.github))
-          .site.inlineJS(
-            """
-const sse = new EventSource("/refresh/v1/sse");
-    sse.addEventListener("message", (e) => {
-    const msg = JSON.parse(e.data);
-
-    if ("KeepAlive" in msg) console.log("KeepAlive");
-
-    if ("PageRefresh" in msg) location.reload();
-    });
-            """
-          )
-            .build
-        ).build
+        .withTheme(helium().build)
+        .build
 
       val res: IO[RenderedTreeRoot[IO]] = transformer.use { t =>
           t.fromDirectory(inputDir().path.toString())
