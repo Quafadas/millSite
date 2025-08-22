@@ -57,13 +57,10 @@ trait MdocModule extends ScalaModule:
 
   def scalaMdocVersion: T[String] = Task(Versions.mdocVersion)
 
-  // override def mvnDeps: T[Seq[Dep]] = super.mvnDeps() ++
-  //   Seq(
-  //     mvn"org.scalameta::mdoc-js::${scalaMdocVersion()}",
-  //     mvn"org.scalameta::mdoc::${scalaMdocVersion()}"
-  //     .exclude("org.scala-lang" -> "scala3-compiler_3")
-  //     .exclude("org.scala-lang" -> "scala3-library_3")
-  //   )
+  override def mvnDeps: T[Seq[Dep]] = super.mvnDeps() ++
+    Seq(
+      mvn"org.scalameta:common_2.13:4.13.9"
+    )
 
 
   // def mdocDep: T[Seq[Dep]] = Task(
