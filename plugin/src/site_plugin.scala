@@ -39,25 +39,18 @@ trait SiteModule extends Module:
     override def scalaVersion: Simple[String] = "3.7.2"
     override def mdocDir = defaultInternalDocDir
     override def docDir: Simple[PathRef] = Task.Source(mdocDir)
-  }
 
-  val unidocs: UnidocModule = new UnidocModule{
-    override def scalaVersion: Simple[String] = "3.7.2"
-    override def unidocDocumentTitle: Simple[String] = "Unidoc Title [hint: override def unidocDocumentTitle: Simple[String] ]"
     override def moduleDeps: Seq[JavaModule] = unidocDeps
   }
 
-  val laika = new LaikaModule {
-    override def inputDir: Simple[PathRef] = mdocModule.mdoc()
-    override def baseUrl: Simple[String] =
-      unidocs.unidocSourceUrl().getOrElse("no path")
 
+  val laika = new LaikaModule {
+    override def inputDir: Simple[PathRef] = mdocModule.mdocT()
+    override def laikaUnidocDeps: Seq[JavaModule] =  unidocDeps
   }
 
   def siteGen = Task{
-    println("running site gen")
-    val mdocs = mdocModule.mdoc()
-    // val api = unidocs.unidocSite()
+    val mdocs = mdocModule.mdocT()
     val site = laika.generateSite()
     updateServer.publish1(println("publishing update"))
     site
@@ -97,11 +90,9 @@ trait SiteModule extends Module:
         )
   }
 
-  def serve = Task.Worker{
+  def dezombify = Task{
     val p = port()
     val osName = System.getProperty("os.name").toLowerCase
-
-    // Let's kill off anything that is a zombie on the port we want to use
     if (osName.contains("win")) {
       // Windows: try PowerShell Get-NetTCPConnection, fallback to netstat/taskkill
       val ps = s"""
@@ -128,6 +119,12 @@ trait SiteModule extends Module:
       |""".stripMargin
       os.proc("sh", "-lc", sh).call(check = false)
     }
+  }
+
+  def serve = Task.Worker{
+    // Let's kill off anything that is a zombie on the port we want to use
+    dezombify()
+
     BuildCtx.withFilesystemCheckerDisabled {
       new RefreshServer(lcs())
     }

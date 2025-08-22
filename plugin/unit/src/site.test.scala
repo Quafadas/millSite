@@ -10,25 +10,22 @@ import mill.api.Task.Simple
 object SiteTests extends TestSuite {
   def tests: Tests = Tests {
     test("Basic site processes mdoc") {
-      object build extends TestRootModule with SiteModule {        
+      object build extends TestRootModule with SiteModule {
 
         lazy val millDiscover = Discover[this.type]
       }
 
-      val resourceFolder = os.Path(sys.env("MILL_TEST_RESOURCE_DIR"))      
+      val resourceFolder = os.Path(sys.env("MILL_TEST_RESOURCE_DIR"))
 
-      UnitTester(build, resourceFolder / "simple_site").scoped { eval =>        
+      UnitTester(build, resourceFolder / "simple_site").scoped { eval =>
         val Right(result) = eval(build.siteGen)
         println(result)
         val resultPath = result.value.path
-        assert(          
+        eval(build.dezombify)
+        assert(
             os.exists(resultPath / "index.html")
-          )
+        )
 
-        val _ = eval(build.serve)
-
-        println("probably shoiuldn't get here")
-        
       }
     }
   }
