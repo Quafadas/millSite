@@ -38,7 +38,7 @@ object UnidocTests extends TestSuite {
         println(unidoc.value.path)
 
         println("Mdoc")
-        val Right(mdocs) = eval(build.mdocModule.mdocT)
+        val Right(mdocs) = eval(build.mdocModule.mdoc2)
         println(mdocs.value.path)
 
         val Right(site) = eval(build.siteGen)

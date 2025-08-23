@@ -35,6 +35,12 @@ trait SiteModule extends Module:
 
   def unidocDeps: Seq[JavaModule] = Seq.empty
 
+  def unidocTitle = Task("Unidoc Title Here")
+
+  def repoLink = Task { "<repo-link>" }
+
+  def latestVersion: Simple[String] = Task { "0.0.0" }
+
   val mdocModule : MdocModule = new MdocModule {
     override def scalaVersion: Simple[String] = "3.7.2"
     override def mdocDir = defaultInternalDocDir
@@ -45,12 +51,24 @@ trait SiteModule extends Module:
 
 
   val laika = new LaikaModule {
-    override def inputDir: Simple[PathRef] = mdocModule.mdocT()
+    override val unidocs = new UnidocModule{
+        override def scalaVersion: Simple[String] = "3.7.2"
+        override def moduleDeps: Seq[JavaModule] = laikaUnidocDeps
+        override def unidocDocumentTitle = unidocTitle()
+
+
+      }
+    override def inputDir: Simple[PathRef] = mdocModule.mdoc2()
     override def laikaUnidocDeps: Seq[JavaModule] =  unidocDeps
+
+    override def repoUrl: Simple[String] = repoLink()
+
+    override def latestVersion: Simple[String] = SiteModule.this.latestVersion()
+
   }
 
   def siteGen = Task{
-    val mdocs = mdocModule.mdocT()
+    val mdocs = mdocModule.mdoc2()
     val site = laika.generateSite()
     updateServer.publish1(println("publishing update"))
     site
@@ -90,7 +108,8 @@ trait SiteModule extends Module:
         )
   }
 
-  def dezombify = Task{
+  def serve = Task.Worker{
+    // Let's kill off anything that is a zombie on the port we want to use
     val p = port()
     val osName = System.getProperty("os.name").toLowerCase
     if (osName.contains("win")) {
@@ -119,11 +138,6 @@ trait SiteModule extends Module:
       |""".stripMargin
       os.proc("sh", "-lc", sh).call(check = false)
     }
-  }
-
-  def serve = Task.Worker{
-    // Let's kill off anything that is a zombie on the port we want to use
-    dezombify()
 
     BuildCtx.withFilesystemCheckerDisabled {
       new RefreshServer(lcs())

@@ -21,7 +21,6 @@ object SiteTests extends TestSuite {
         val Right(result) = eval(build.siteGen)
         println(result)
         val resultPath = result.value.path
-        eval(build.dezombify)
         assert(
             os.exists(resultPath / "index.html")
         )

@@ -18,32 +18,36 @@ import mill.api.*
 import mill.scalalib.*
 import mill.api.Task.Simple
 import mill.api.BuildCtx
+import laika.config.SyntaxHighlighting
 
 
 trait LaikaModule extends Module {
 
   def laikaUnidocDeps: Seq[JavaModule] = Seq.empty
 
-  val unidocs: UnidocModule = new UnidocModule{
-    override def scalaVersion: Simple[String] = "3.7.2"
-    override def unidocDocumentTitle: Simple[String] = "Unidoc Title [hint: override def unidocDocumentTitle: Simple[String] ]"
-    override def moduleDeps: Seq[JavaModule] = laikaUnidocDeps
-  }
+  val unidocs: UnidocModule
 
-  def includeApi: Simple[Boolean]= Task{true}
+  def includeApi: Simple[Boolean]= Task{laikaUnidocDeps.nonEmpty}
 
   def inputDir: Simple[PathRef] = Task.Source(super.moduleDir / "docs")
 
   def baseUrl: Simple[String] = unidocs.unidocSourceUrl().getOrElse("!!!no path!!!")
 
+  def repoUrl: Simple[String] = Task { "https://github.com/example/repo" }
+
+  def latestVersion: Simple[String] = Task { "0.0.0" }
+
   def helium = Task.Worker {
+    val repoLink =
+      IconLink.external(repoUrl(), HeliumIcon.github)
+    val apiLink = if (includeApi()) Seq(IconLink.internal(Root / "api/index.html", HeliumIcon.api)) else Seq.empty
+
     Helium.defaults
       .site.topNavigationBar(
         homeLink = IconLink.internal(Root / "index.md", HeliumIcon.home),
-        navLinks = Seq(
-          IconLink.external("https://example.com", HeliumIcon.github)
-        )
+        navLinks = apiLink :+ repoLink
       )
+
       .site.inlineJS(
 """const sse = new EventSource("/refresh/v1/sse");
 sse.addEventListener("message", (e) => {
@@ -59,6 +63,7 @@ if ("PageRefresh" in msg) location.reload();
   }
 
   def stageSite = Task {
+    println("Stage Site")
     os.copy(inputDir().path, Task.dest, mergeFolders = true)
     if(includeApi()) {
       val apiSite = unidocs.unidocSite()
@@ -78,7 +83,8 @@ if ("PageRefresh" in msg) location.reload();
         .from(Markdown)
         .to(HTML)
         .withConfigValue(LaikaKeys.siteBaseURL, baseUrl())
-        .using(Markdown.GitHubFlavor)
+        .withConfigValue("version.latest", latestVersion())
+        .using(Markdown.GitHubFlavor, SyntaxHighlighting)
         .parallel[IO]
         .withTheme(helium().build)
         .build
@@ -90,7 +96,12 @@ if ("PageRefresh" in msg) location.reload();
         }
       res.unsafeRunSync()
 
-
+      // if(includeApi()) {
+      //   val apiSite = unidocs.unidocSite()
+      //   os.copy(apiSite.path, Task.dest / "api", mergeFolders = true)
+      // } else {
+      //   ()
+      // }
 
       PathRef(Task.dest)
       }
