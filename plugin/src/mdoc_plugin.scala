@@ -59,12 +59,12 @@ trait MdocModule extends ScalaModule:
 
   def scalaMdocVersion: T[String] = Task(Versions.mdocVersion)
 
-  def scalaMetaDeps = Task {
-    Seq(
-      mvn"org.scalameta:common_2.13:4.13.9",
-      mvn"org.scalameta::scalameta:4.13.9"
-    )
-  }
+  // def scalaMetaDeps = Task {
+  //   Seq(
+  //     mvn"org.scalameta:common_2.13:4.13.9",
+  //     mvn"org.scalameta::scalameta:4.13.9"
+  //   )
+  // }
 
   override def mvnDeps: T[Seq[Dep]] = super.mvnDeps() ++
     Seq(

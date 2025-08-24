@@ -56,9 +56,9 @@ object plugin extends ScalaModule with PublishModule:
       mvn"org.typelevel::laika-io:1.3.2",
       mvn"io.github.quafadas::sjsls:0.2.11",
       // mvn"org.scalameta::mdoc:2.7.2",
-      mvn"org.scala-lang::scala3-compiler:${scalaVersion()}",
-      mvn"org.scala-lang::scala3-library:${scalaVersion()}",
-      mvn"org.scala-lang::tasty-core:${scalaVersion()}",
+      // mvn"org.scala-lang::scala3-compiler:${scalaVersion()}",
+      // mvn"org.scala-lang::scala3-library:${scalaVersion()}",
+      // mvn"org.scala-lang::tasty-core:${scalaVersion()}",
     )
 
   }
