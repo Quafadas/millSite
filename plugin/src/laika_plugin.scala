@@ -63,7 +63,6 @@ if ("PageRefresh" in msg) location.reload();
   }
 
   def stageSite = Task {
-    println("Stage Site")
     os.copy(inputDir().path, Task.dest, mergeFolders = true)
     if(includeApi()) {
       val apiSite = unidocs.unidocSite()
@@ -76,7 +75,6 @@ if ("PageRefresh" in msg) location.reload();
 
   def generateSite =
     Task{
-      println("Generate Site")
       BuildCtx.withFilesystemCheckerDisabled {
 
       val transformer = Transformer

@@ -11,7 +11,7 @@ import mill.scalalib.*
 
 object UnidocTests extends TestSuite {
   def tests: Tests = Tests {
-    test("mdoc basic processes mdoc") {
+    test("unidoc included in site basic processes mdoc") {
 
 
 
@@ -30,19 +30,24 @@ object UnidocTests extends TestSuite {
       UnitTester(build, resourceFolder / "unidoc_example").scoped { eval =>
 
         val Right(api) = eval(build.common.compile)
-        println("Compiled API:")
-        println(api)
+
+
+        val Right(withApi) = eval(build.laika.includeApi)
+
+
+        val Right(checkHelium) = eval(build.laika.helium)
+        val Right(checkApi) = eval(build.laika.stageSite)
+        val apiDocPath = checkApi.value.path
+
+        assert(os.exists(apiDocPath / "api" / "index.html"))
 
         val Right(unidoc) = eval(build.laika.unidocs.unidocLocal)
-        println("Compiled Unidoc:")
-        println(unidoc.value.path)
+        // println(unidoc.value.path)
 
-        println("Mdoc")
         val Right(mdocs) = eval(build.mdocModule.mdoc2)
-        println(mdocs.value.path)
 
         val Right(site) = eval(build.siteGen)
-        println(site.value.path)
+        // If the "with API "
 
       //   val Right(result) = eval(build.siteGen)
 
