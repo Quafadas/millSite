@@ -89,8 +89,26 @@ trait MdocModule extends ScalaModule:
     defaultResolver().classpath(mdocDep())
   }
 
+  /**
+   * Directory containing the mdoc documentation sources for this module.
+   *
+   * Defaults to moduleDir/docs and serves as the input root for mdoc processing
+   * (e.g., Markdown files, configuration, and related assets). Override to
+   * customize where your documentation lives within the module.
+   *
+   * @return Path to the docs directory under this module’s directory.
+   */
   def mdocDir = super.moduleDir / "docs"
 
+  /**
+   * Returns the directory that contains the project's mdoc documentation sources.
+   *
+   * The directory is exposed as a Mill source input so that changes to any files
+   * within it are tracked and invalidate downstream tasks. The returned PathRef
+   * points to the directory and enables incremental rebuilds when its contents change.
+   *
+   * @return a PathRef to the documentation source directory, tracked as a task input
+   */
   def docDir: Simple[PathRef] = Task.Source(mdocDir)
 
   // def mdocFiles: Task[Seq[PathRef]] = Task {
@@ -117,29 +135,12 @@ trait MdocModule extends ScalaModule:
 
   def pathToImportMap: T[Option[PathRef]] = None
 
-  // def mdocT = Task {
-  //   val mdoccd = mdocOnly()
-  //   val others = mdFiles()
-
-  //   os.copy(mdoccd.path, Task.dest, mergeFolders = true)
-  //   others.foreach {
-  //     f => os.copy(f.path, Task.dest / f.path.subRelativeTo(docDir().path), mergeFolders = true)
-  //   }
-  //   PathRef(Task.dest)
-  // }
-
   /**
-   * This doesn't work when I try to use it in an external module. i suspecty something to do with plugin dependancy resolution and that scalameta commons is not published for scala 3
+   * Configures mdocs arguments. See;
+   *
+   * https://scalameta.org/mdoc/docs/installation.html#help
+   *
    */
-
-  // def mdocT: Task.Simple[PathRef] = Task{
-  //   mdoc.SbtMain.main(
-  //     args = mdocArgs().toArray ++ Seq("--out", Task.dest.toString())
-  //   )
-
-  //   PathRef(Task.dest)
-  // }
-
   def mdocArgs: Task[Seq[String]] = Task{
     val cp = compileClasspath().map(_.path)
     val runCp = runClasspath().map(_.path)
@@ -161,7 +162,24 @@ trait MdocModule extends ScalaModule:
   }
 
   /**
-   * I can't seem to fix the dependency resolution issues when publishing a pluigin, so instead we call a JVM and manage it's classpath directly
+   * Runs mdoc to generate processed documentation into this task's destination directory.
+   *
+   * Behavior:
+   * - Ensures sources are compiled and documentation inputs are up to date by invoking `compile()` and `docDir()`.
+   * - Builds CLI arguments from `mdocArgs()`, appending `--out` pointing to `Task.dest`.
+   * - Resolves the mdoc runtime classpath from `mDocLibs()` and invokes `mdoc.Main` in a forked JVM
+   *   with the configured JVM arguments (`forkArgs()`) and environment (`forkEnv()`).
+   *
+   * The resulting documentation is written under `Task.dest` and returned as a `PathRef`.
+   *
+   * Side effects:
+   * - Spawns a new JVM process to run mdoc.
+   * - Writes/overwrites files under this task’s destination directory.
+   *
+   * Failure conditions:
+   * - Fails if the mdoc process exits non‑zero or if required dependencies are unavailable.
+   *
+   * @return a `PathRef` pointing to the directory containing the generated documentation.
    */
 
   def mdoc2: Task.Simple[PathRef] = Task {
@@ -182,108 +200,4 @@ trait MdocModule extends ScalaModule:
     )
     PathRef(Task.dest)
   }
-
-
-  /**
-   * Generates the mdoc documentation for the module.
-   *
-   * TODO:
-    - Mdoc JS
-    - Caching
-   */
-  // def mdocOnly: Task.Simple[PathRef] = Task {
-
-  //   compile()
-  //   // val cacheDir = Task.dest / "cache"
-  //   // val mdoccdDir = Task.dest / "mdoccd"
-  //   // val cacheFile = cacheDir / "cache.json"
-  //   // if !os.exists(cacheDir) then os.makeDir.all(cacheDir)
-  //   // end if
-  //   // if !os.exists(mdoccdDir) then os.makeDir.all(mdoccdDir)
-  //   // end if
-  //   // if !os.exists(cacheFile) then os.write(cacheFile, "[]")
-  //   // end if
-
-  //   val mdocLibs_ = mDocLibs().map(_.path)
-  //   val cp = compileClasspath().map(_.path)
-  //   val runCp = runClasspath().map(_.path)
-  //   // val deps = mvnDeps()
-  //   // val deps2 = defaultResolver().classpath(deps).map(_.path)
-  //   val toProcess = docDir()
-  //   // val cached = upickle.default.read[Seq[PathRef]](os.read(cacheFile))
-
-  //   // val cachedList =
-  //   //   cached.map(cmdoc => cmdoc.path.subRelativeTo(mdocDir)).toSet
-  //   // val currList =
-  //   //   mdocSources_.map(cmdoc => cmdoc.path.subRelativeTo(mdocDir)).toSet
-
-  //   // cachedList.diff(currList).foreach(del => os.remove(mdoccdDir / del))
-
-  //   val result = if !os.list(toProcess.path).isEmpty then
-
-  //     // val checkCache = toProcess.map(_.sig).diff(cached.map(_.sig))
-  //     val importMap = pathToImportMap().map(_.path.toIO.getAbsolutePath)
-  //     val scalaCOpts = scalacOptions()
-  //     val dirParams = toProcess
-  //         .map(_.path)
-  //         .map { pr =>
-  //           Seq(
-  //             "--in",
-  //             pr.toIO.getAbsolutePath,
-  //             "--out",
-  //             // Task.dest.toIO.getAbsolutePath,
-  //             (Task.dest / pr.subRelativeTo(mdocDir)).toIO.getAbsolutePath
-  //           )
-  //         }
-  //         .iterator
-  //         .flatten
-  //         .toSeq
-  //       ++ Seq("--classpath", toArgument(runCp ++ cp))
-  //       ++ importMap.fold(Seq.empty[String])(i => Seq("--import-map-path", i))
-  //       ++ (if scalaCOpts.nonEmpty then Seq("--scalac-options", scalaCOpts.mkString(" ")) else Seq.empty[String])
-  //       // ++ Seq("--js-classpath", jsSiteModule.jsclasspath() )
-
-
-  //     // println("running mdoc")
-  //     // println(dirParams.mkString("\n"))
-  //     // println("FORK ARGS")
-  //     // println(forkArgs().mkString("\n"))
-  //     // println("FORK ENV")
-  //     // println(forkEnv().mkString("\n"))
-  //     // println("FORK WORKING DIR")
-  //     // println(forkWorkingDir())
-  //     Result.create(
-  //         mill.util.Jvm.callProcess(
-  //           mainClass = "mdoc.Main",
-  //           classPath = mdocLibs_,// ++ Seq(jsSiteModule.mdocJsProperties().path),
-  //           jvmArgs = forkArgs(),
-  //           env = forkEnv(),
-  //           mainArgs = dirParams,
-  //           // cpPassingJarPath =
-  //           //   Some(Task.dest) // classpath can be long. On windows will barf without passing as Jar
-  //         )
-  //       )
-
-  //     else Result.Success("No mdoc sources found")
-
-  //   // if (os.exists(mdoccdDir / "_docs" / "_assets")) {
-  //   //   os.remove.all(mdoccdDir / "_assets")
-  //   //   os.move(
-  //   //     mdoccdDir / "_docs" / "_assets",
-  //   //     mdoccdDir / "_assets",
-  //   //     replaceExisting = true,
-  //   //     createFolders = true
-  //   //   )
-  //   // }
-  //   result match
-  //     case Result.Success(_) =>
-  //       // os.write.over(cacheFile, upickle.default.write(cached ++ toProcess))
-  //       Result.Success(PathRef(Task.dest))
-  //     case Result.Failure(msg) =>
-  //       Result.Failure(
-  //         s"mdoc failed with message: $msg\n" +
-  //           s"Please check the mdoc sources in ${docDir().path} and ensure they are valid."
-  //       )
-  //   end match
-  // }
-// end MdocModule
+end MdocModule

@@ -24,7 +24,7 @@ Opinion : having your docs and the API docs unified makes life in userland bette
 
 Niggle: Current scaladoc creates a static site in the which the default "index.html" shows the API. As a user, I don't want to be hit over the head with the API. I want to see the "Getting Started" page.
 
-![doc_fix](../images/fix_link.png)
+![doc_fix](../assets/images/fix_link.png)
 
 Solution: Configure your landing page _outside_ the website itself, and append "/docs" (i.e. depart from the github pages checkbox default) to the pages URL you direct people to.
 
@@ -48,15 +48,3 @@ Importantly though, for publishing, we eject from that complexity and revert to 
 ## Publishing via GHA
 
 Some jiggery monkery was required to get new github actions pages to publish correctly. Seems to work really well now though.
-
-## Todo List
-
-- [x] Let's test a source link. [[UserApi|io.github.quafadas.millSite.UserApi]]
-- [x] Scastie (snippet compiler)
-- [x] Api Gen
-- [x] Github pages
-- [x] project version
-- [x] mdoc caching
-- [x] mermaid
-- [x] mdoc JS
-- [ ] cross platform API?

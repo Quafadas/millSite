@@ -1,9 +1,11 @@
-# millSite
+# Mill Site
 
-Leans into new scaladoc to generate a static site.
+Aims to provide a convienient way to publish library documentation for a scala3 project built in mill.
 
-[Documentation](https://quafadas.github.io/millSite/docs)
+- Typesafe documentation provided through Mdoc.
+- Markdown to HTML conversion through Laika.
+- API documentation through mill's Unidoc, copied "as is" and linked into the website.
 
-Much plagarism...
-- https://github.com/hmf/mdocMill
-- https://github.com/atooni/mill-mdoc
+[Docs](https://quafadas.github.io/millSite/docs/)
+
+

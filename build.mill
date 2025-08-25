@@ -1,6 +1,7 @@
 //| mill-version: 1.0.3
 //| mill-jvm-version: 21
-
+//| mvnDeps:
+//| - io.github.quafadas:millSite_mill1_3.7:0.0.50
 
 import mill.util.BuildInfo.{millVersion, millBinPlatform}
 import mill.util.VcsVersion
@@ -18,6 +19,7 @@ import java.nio.file.Path
 import com.sun.net.httpserver.SimpleFileServer
 import com.sun.net.httpserver.SimpleFileServer.OutputLevel
 import java.net.InetSocketAddress
+import mill.util.VcsVersion
 
 // mill mill.bsp.BSP/install
 // mill __.compiledClassesAndSemanticDbFiles
@@ -67,27 +69,23 @@ object plugin extends ScalaModule with PublishModule:
 end plugin
 
 
-object site extends ScalaModule:
-  // def latestVersion: T[String] = Task {
-  //   VcsVersion.vcsState().lastTag.getOrElse("0.0.0").replace("v", "")
+object site extends io.github.quafadas.millSite.SiteModule:
+  def latestVersion: T[String] = Task {
+    VcsVersion.vcsState().lastTag.getOrElse("0.0.0").replace("v", "")
+  }
+
+  override def unidocTitle = Task("Mill Site API Documentation")
+
+  def unidocDeps: Seq[JavaModule] = Seq(plugin)
+
+  // override def scalaDocOptions = Task {
+
+  //   super.scalaDocOptions() ++ Seq(
+  //     // "-project-version",
+  //     // TODO: Bring back
+  //     // latestVersion(),
+  //     s"-social-links:github::${plugin.pomSettings().url}"
+  //   )
   // }
-
-  def scalaVersion: Task.Simple[String] = "3.7.0"
-
-  def sitePath: Task.Simple[PathRef] = Task{PathRef(
-    plugin.docJar().path / os.up / "javadoc")
-  }
-
-  def sitePathString: Task.Simple[String] = Task(sitePath().path.toString())
-
-  override def scalaDocOptions = Task {
-
-    super.scalaDocOptions() ++ Seq(
-      // "-project-version",
-      // TODO: Bring back
-      // latestVersion(),
-      s"-social-links:github::${plugin.pomSettings().url}"
-    )
-  }
 
 end site

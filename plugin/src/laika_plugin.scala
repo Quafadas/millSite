@@ -37,6 +37,14 @@ trait LaikaModule extends Module {
 
   def latestVersion: Simple[String] = Task { "0.0.0" }
 
+
+  def configValues: Simple[Seq[(String, String)]] = Task {
+    Seq(
+      "version.latest" -> latestVersion(),
+      LaikaKeys.siteBaseURL.toString() -> baseUrl()
+    )
+  }
+
   def helium = Task.Worker {
     val repoLink =
       IconLink.external(repoUrl(), HeliumIcon.github)
@@ -77,17 +85,25 @@ if ("PageRefresh" in msg) location.reload();
     Task{
       BuildCtx.withFilesystemCheckerDisabled {
 
+      val heliumB = helium().build
+
       val transformer = Transformer
         .from(Markdown)
         .to(HTML)
-        .withConfigValue(LaikaKeys.siteBaseURL, baseUrl())
-        .withConfigValue("version.latest", latestVersion())
+
+
+      val transformerWithValues =
+        configValues()
+          .foldLeft(transformer) { (t, kv) => t.withConfigValue(kv._1, kv._2) }
+
+
+      val built = transformerWithValues
         .using(Markdown.GitHubFlavor, SyntaxHighlighting)
         .parallel[IO]
-        .withTheme(helium().build)
+        .withTheme(heliumB)
         .build
 
-      val res: IO[RenderedTreeRoot[IO]] = transformer.use { t =>
+      val res: IO[RenderedTreeRoot[IO]] = built.use { t =>
           t.fromDirectory(stageSite().path.toString())
             .toDirectory(Task.dest.toString())
             .transform
