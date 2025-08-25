@@ -1,7 +1,6 @@
 //| mill-version: 1.0.3
 //| mill-jvm-version: 21
-// //| mvnDeps:
-// //|   - io.github.quafadas::millSite::0.0.41-5-e9cfe1-DIRTYb4e16fea
+
 
 import mill.util.BuildInfo.{millVersion, millBinPlatform}
 import mill.util.VcsVersion
@@ -15,6 +14,10 @@ import mill.api.Result
 
 import mill.util.Jvm.createJar
 import mill.api.Task.Simple
+import java.nio.file.Path
+import com.sun.net.httpserver.SimpleFileServer
+import com.sun.net.httpserver.SimpleFileServer.OutputLevel
+import java.net.InetSocketAddress
 
 // mill mill.bsp.BSP/install
 // mill __.compiledClassesAndSemanticDbFiles
@@ -28,39 +31,13 @@ object plugin extends ScalaModule with PublishModule:
 
   override def artifactName = "millSite"
 
-  // def scalametaCommon = Task {
-  //   Seq(
-  //     mvn"org.scalameta:common_2.13:4.13.9",
-  //     mvn"org.scalameta::scalameta:4.13.9"
-  //   )
-  // }
-
-  // def scalaMetaCommonLib = Task {
-  //   defaultResolver().classpath(scalametaCommon())
-  // }
-
-  // override def compileClasspath: Simple[Seq[PathRef]] = super.compileClasspath() ++
-  //   scalaMetaCommonLib()
-
-  // override def compileMvnDeps = Seq(
-  //   mvn"com.lihaoyi::mill-libs-main::$millVersion",
-  //   mvn"com.lihaoyi::mill-libs-scalalib::$millVersion",
-  //   mvn"com.lihaoyi::mill-libs-scalajslib::$millVersion"
-  // )
-
   def mvnDeps = Task{
     super.mvnDeps() ++
     Seq(
       mvn"com.lihaoyi::mill-libs:$millVersion",
-      // mvn"io.github.quafadas::sjsls:0.2.5"
       mvn"org.typelevel::laika-io:1.3.2",
       mvn"io.github.quafadas::sjsls:0.2.11",
-      // mvn"org.scalameta::mdoc:2.7.2",
-      // mvn"org.scala-lang::scala3-compiler:${scalaVersion()}",
-      // mvn"org.scala-lang::scala3-library:${scalaVersion()}",
-      // mvn"org.scala-lang::tasty-core:${scalaVersion()}",
     )
-
   }
 
   def artifactSuffix = s"${platformSuffix()}_${scalaArtefactVersion()}"
@@ -87,42 +64,21 @@ object plugin extends ScalaModule with PublishModule:
       mvn"com.lihaoyi::mill-testkit::${millVersion}",
       mvn"com.lihaoyi::upickle::4.1.0"
     )
-
-  // object test extends ScalaTests, TestModule.Utest:
-  //   def mvnDeps = Seq(
-  //     mvn"com.lihaoyi::mill-testkit::${millVersion}",
-  //     mvn"com.lihaoyi::upickle::4.1.0"
-  //   )
-
-  //   def forkEnv = Task {
-  //     Map(
-  //       "MILL_EXECUTABLE_PATH" -> millExecutable.assembly().path.toString,
-  //       "MILL_USER_TEST_REPO" -> publishLocalTestRepo().path.toString
-  //     )
-  //   }
-
-  //   object millExecutable extends JavaModule:
-  //     def mvnDeps = Seq(mvn"com.lihaoyi:mill-runner-launcher_3:$millVersion")
-  //     def mainClass = Some("mill.launcher.MillLauncherMain")
-  //   end millExecutable
-  // end test
 end plugin
 
-// object itest extends MillIntegrationTestModule {
-//   def millTestVersion = plugin.millVersion()
-//   def pluginsUnderTest = Seq(plugin)
-// }
 
 object site extends ScalaModule:
   // def latestVersion: T[String] = Task {
   //   VcsVersion.vcsState().lastTag.getOrElse("0.0.0").replace("v", "")
   // }
 
-  def scalaVersion: T[String] = "3.7.0"
+  def scalaVersion: Task.Simple[String] = "3.7.0"
 
-  def sitePath: T[os.Path] = Task(docJar().path / os.up / "javadoc")
+  def sitePath: Task.Simple[PathRef] = Task{PathRef(
+    plugin.docJar().path / os.up / "javadoc")
+  }
 
-  def sitePathString: T[String] = Task(sitePath().toString())
+  def sitePathString: Task.Simple[String] = Task(sitePath().path.toString())
 
   override def scalaDocOptions = Task {
 
@@ -134,15 +90,4 @@ object site extends ScalaModule:
     )
   }
 
-  def serveLocal() = Task.Command {
-    os.proc(
-      "npm",
-      "browser-sync",
-      "start",
-      "--server",
-      "--ss",
-      sitePathString(),
-      "-w"
-    ).call(stdout = os.Inherit)
-  }
 end site

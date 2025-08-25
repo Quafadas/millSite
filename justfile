@@ -1,6 +1,5 @@
 setupIde:
-  mill mill.bsp.BSP/install
-  mill --import ivy:com.lihaoyi::mill-contrib-bloop:  mill.contrib.bloop.Bloop/install
+  mill __.compiledClassesAndSemanticDbFiles
 
 test:
-  mill itest.test -j 0
+  mill plugin.unit
