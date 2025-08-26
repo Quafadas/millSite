@@ -19,7 +19,7 @@ import mill.scalalib.*
 import mill.api.Task.Simple
 import mill.api.BuildCtx
 import laika.config.SyntaxHighlighting
-
+import laika.config.{ LinkConfig, ApiLinks, SourceLinks }
 
 trait LaikaModule extends Module {
 
@@ -96,6 +96,17 @@ if ("PageRefresh" in msg) location.reload();
         configValues()
           .foldLeft(transformer) { (t, kv) => t.withConfigValue(kv._1, kv._2) }
 
+      if (includeApi()) {
+        transformerWithValues.withConfigValue(
+          LinkConfig.empty
+            .addApiLinks(
+                ApiLinks(baseUri = "/api")
+              )
+            .addSourceLinks(
+                SourceLinks(baseUri = repoUrl(), suffix = "scala")
+              )
+          )
+      }
 
       val built = transformerWithValues
         .using(Markdown.GitHubFlavor, SyntaxHighlighting)
