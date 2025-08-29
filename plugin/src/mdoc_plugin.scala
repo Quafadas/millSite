@@ -151,8 +151,6 @@ trait MdocModule extends ScalaModule:
     // val scalametaCommon = scalaMetaCommonLib().map(_.path)
     val siteVars = siteVariables().toSeq.flatMap { case (k, v) => Seq(s"--site.$k", v) }
 
-    println(siteVars)
-
     // val toProcess = mdocFiles()
     val importMap = pathToImportMap().map(_.path.toIO.getAbsolutePath)
     val scalaCOpts = scalacOptions()

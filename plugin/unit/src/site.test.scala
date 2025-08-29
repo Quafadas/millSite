@@ -19,7 +19,7 @@ object SiteTests extends TestSuite {
 
       UnitTester(build, resourceFolder / "simple_site").scoped { eval =>
         val Right(result) = eval(build.siteGen)
-        println(result)
+
         val resultPath = result.value.path
         assert(
             os.exists(resultPath / "index.html")

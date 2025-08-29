@@ -99,6 +99,7 @@ if ("PageRefresh" in msg) location.reload();
 
       val built = transformerWithValues
         .using(Markdown.GitHubFlavor, SyntaxHighlighting)
+        .withRawContent
         .parallel[IO]
         .withTheme(heliumB)
         .build
