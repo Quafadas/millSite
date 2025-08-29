@@ -2,6 +2,8 @@
 
 Mdoc basic useage below
 
+@VERSION@
+
 ```scala mdoc
 
 val x = 1

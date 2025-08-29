@@ -13,6 +13,8 @@ object MdocTests extends TestSuite {
       object build extends TestRootModule with MdocModule {
         override def scalaVersion: Simple[String] = "3.7.2"
 
+        override def siteVariables: Simple[Seq[(String, String)]] = Seq(("VERSION", "1.2.3"))
+
         lazy val millDiscover = Discover[this.type]
       }
 
@@ -33,6 +35,9 @@ object MdocTests extends TestSuite {
         )
         assert(
           os.read.lines(resultPath / "hi.mdoc.md").mkString("").contains("// res1: Int = 42")
+        )
+        assert(
+          os.read.lines(resultPath / "hi.mdoc.md").mkString("").contains("1.2.3")
         )
       }
     }

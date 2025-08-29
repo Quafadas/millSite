@@ -71,6 +71,10 @@ trait MdocModule extends ScalaModule:
       mvn"org.scalameta:common_2.13:4.13.9"
     )
 
+  def siteVariables: Task.Simple[Seq[(String, String)]] = Task {
+    Seq.empty[(String, String)]
+  }
+
 
   def mdocDep: T[Seq[Dep]] = Task(
     Seq(
@@ -145,6 +149,9 @@ trait MdocModule extends ScalaModule:
     val cp = compileClasspath().map(_.path)
     val runCp = runClasspath().map(_.path)
     // val scalametaCommon = scalaMetaCommonLib().map(_.path)
+    val siteVars = siteVariables().toSeq.flatMap { case (k, v) => Seq(s"--site.$k", v) }
+
+    println(siteVars)
 
     // val toProcess = mdocFiles()
     val importMap = pathToImportMap().map(_.path.toIO.getAbsolutePath)
@@ -158,6 +165,7 @@ trait MdocModule extends ScalaModule:
     ++ Seq("--classpath", toArgument(runCp ++ cp))
     ++ importMap.fold(Seq.empty[String])(i => Seq("--import-map-path", i))
     ++ (if scalaCOpts.nonEmpty then Seq("--scalac-options", scalaCOpts.mkString(" ")) else Seq.empty[String])
+    ++ siteVars
     // ++ Seq("--js-classpath", jsSiteModule.jsclasspath() )
   }
 
