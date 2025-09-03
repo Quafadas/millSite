@@ -20,7 +20,7 @@ import cats.effect.IO
 // import os.SubPath
 // import ClasspathHelp.*
 import cats.effect.unsafe.implicits.global
-import io.github.quafadas.sjsls.LiveServer.LiveServerConfig
+import io.github.quafadas.sjsls.LiveServerConfig
 import cats.effect.ExitCode
 import scala.util.{Try, Success, Failure}
 import scala.concurrent.Future
@@ -102,16 +102,20 @@ trait SiteModule extends Module:
   // }
 
   def lcs = Task.Worker{
-    LiveServerConfig(
-          baseDir = None, // typically this would be a build tool here
-          // outDir = Some(assets().path.toString()),
-          port = com.comcast.ip4s.Port.fromInt(port()).getOrElse(throw new IllegalArgumentException(s"invalid port: ${port()}")),
-          indexHtmlTemplate = Some(sitePathOnly()),
-          buildTool = io.github.quafadas.sjsls.None(),
-          openBrowserAt = "/index.html",
-          preventBrowserOpen = !openBrowser(),
-          customRefresh = Some(updateServer)
-        )
+    val port_ = port()
+    val sitePathOnly_ = sitePathOnly()
+    BuildCtx.withFilesystemCheckerDisabled {
+      LiveServerConfig(
+            baseDir = None, // typically this would be a build tool here
+            // outDir = Some(assets().path.toString()),
+            port = com.comcast.ip4s.Port.fromInt(port_).getOrElse(throw new IllegalArgumentException(s"invalid port: ${port_}")),
+            indexHtmlTemplate = Some(sitePathOnly_),
+            buildTool = io.github.quafadas.sjsls.NoBuildTool(),
+            openBrowserAt = "/index.html",
+            preventBrowserOpen = !openBrowser(),
+            customRefresh = Some(updateServer)
+          )
+    }
   }
 
   def serve = Task.Worker{

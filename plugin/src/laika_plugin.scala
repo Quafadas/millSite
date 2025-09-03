@@ -71,54 +71,56 @@ if ("PageRefresh" in msg) location.reload();
   }
 
   def stageSite = Task {
-    os.copy(inputDir().path, Task.dest, mergeFolders = true)
-    if(includeApi()) {
-      val apiSite = unidocs.unidocSite()
-      os.copy(apiSite.path, Task.dest / "api", mergeFolders = true)
-    } else {
-      ()
+    BuildCtx.withFilesystemCheckerDisabled {
+      os.copy(inputDir().path, Task.dest, mergeFolders = true)
+      if(includeApi()) {
+        val apiSite = unidocs.unidocSite()
+        os.copy(apiSite.path, Task.dest / "api", mergeFolders = true)
+      } else {
+        ()
+      }
+      PathRef(Task.dest)
     }
-    PathRef(Task.dest)
   }
 
   def generateSite =
     Task{
       BuildCtx.withFilesystemCheckerDisabled {
 
-      val heliumB = helium().build
+        val heliumB = helium().build
 
-      val transformer = Transformer
-        .from(Markdown)
-        .to(HTML)
-
-
-      val transformerWithValues =
-        configValues()
-          .foldLeft(transformer) { (t, kv) => t.withConfigValue(kv._1, kv._2) }
+        val transformer = Transformer
+          .from(Markdown)
+          .to(HTML)
 
 
-      val built = transformerWithValues
-        .using(Markdown.GitHubFlavor, SyntaxHighlighting)
-        .withRawContent
-        .parallel[IO]
-        .withTheme(heliumB)
-        .build
+        val transformerWithValues =
+          configValues()
+            .foldLeft(transformer) { (t, kv) => t.withConfigValue(kv._1, kv._2) }
 
-      val res: IO[RenderedTreeRoot[IO]] = built.use { t =>
-          t.fromDirectory(stageSite().path.toString())
-            .toDirectory(Task.dest.toString())
-            .transform
-        }
-      res.unsafeRunSync()
 
-      // if(includeApi()) {
-      //   val apiSite = unidocs.unidocSite()
-      //   os.copy(apiSite.path, Task.dest / "api", mergeFolders = true)
-      // } else {
-      //   ()
-      // }
+        val built = transformerWithValues
+          .using(Markdown.GitHubFlavor, SyntaxHighlighting)
+          .withRawContent
+          .parallel[IO]
+          .withTheme(heliumB)
+          .build
 
-      PathRef(Task.dest)
+        val res: IO[RenderedTreeRoot[IO]] = built.use { t =>
+            t.fromDirectory(stageSite().path.toString())
+              .toDirectory(Task.dest.toString())
+              .transform
+          }
+        res.unsafeRunSync()
+
+        // if(includeApi()) {
+        //   val apiSite = unidocs.unidocSite()
+        //   os.copy(apiSite.path, Task.dest / "api", mergeFolders = true)
+        // } else {
+        //   ()
+        // }
+
+        PathRef(Task.dest)
       }
     }
 

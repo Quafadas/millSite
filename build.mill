@@ -38,7 +38,7 @@ object plugin extends ScalaModule with PublishModule:
     Seq(
       mvn"com.lihaoyi::mill-libs:$millVersion",
       mvn"org.typelevel::laika-io:1.3.2",
-      mvn"io.github.quafadas::sjsls:0.2.11",
+      mvn"io.github.quafadas::sjsls:0.2.12",
     )
   }
 
