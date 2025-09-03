@@ -18,6 +18,15 @@ object SiteTests extends TestSuite {
       val resourceFolder = os.Path(sys.env("MILL_TEST_RESOURCE_DIR"))
 
       UnitTester(build, resourceFolder / "simple_site").scoped { eval =>
+
+        val Right(resources) = eval(build.resources)
+        val Right(resourcesMdoc) = eval(build.mdocModule.resources)
+        val Right(compileResourcesMdoc) = eval(build.mdocModule.compileResources)
+
+
+        assert(resourcesMdoc.value.length == 2) // should include the site module resourceDir as well
+        assert(compileResourcesMdoc.value.length == 2) // should include the site module resourceDir as well
+
         val Right(result) = eval(build.siteGen)
 
         val resultPath = result.value.path

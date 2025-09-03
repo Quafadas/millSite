@@ -41,12 +41,17 @@ trait SiteModule extends Module:
 
   def latestVersion: Simple[String] = Task { "0.0.0" }
 
+  def resources = Task.Sources { super.moduleDir / "resources" }
+
   val mdocModule : MdocModule = new MdocModule {
     override def scalaVersion: Simple[String] = "3.7.2"
     override def mdocDir = defaultInternalDocDir
     override def docDir: Simple[PathRef] = Task.Source(mdocDir)
 
     override def moduleDeps: Seq[JavaModule] = unidocDeps
+
+    override def compileResources = Task{super.compileResources() ++ SiteModule.this.resources()}
+    override def resources = Task{ super.resources() ++ SiteModule.this.resources()}
   }
 
 
@@ -70,7 +75,7 @@ trait SiteModule extends Module:
   def siteGen = Task{
     val mdocs = mdocModule.mdoc2()
     val site = laika.generateSite()
-    updateServer.publish1(println("publishing update"))
+    updateServer.publish1(println("publishing update")).unsafeRunSync()
     site
   }
 
@@ -104,41 +109,14 @@ trait SiteModule extends Module:
           indexHtmlTemplate = Some(sitePathOnly()),
           buildTool = io.github.quafadas.sjsls.None(),
           openBrowserAt = "/index.html",
-          preventBrowserOpen = !openBrowser()
+          preventBrowserOpen = !openBrowser(),
+          customRefresh = Some(updateServer)
         )
   }
 
   def serve = Task.Worker{
     // Let's kill off anything that is a zombie on the port we want to use
     val p = port()
-    val osName = System.getProperty("os.name").toLowerCase
-    if (osName.contains("win")) {
-      // Windows: try PowerShell Get-NetTCPConnection, fallback to netstat/taskkill
-      val ps = s"""
-      |if (Get-Command Get-NetTCPConnection -ErrorAction SilentlyContinue) {
-      |  $$pids = Get-NetTCPConnection -LocalPort $p -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique
-      |  if ($$pids) { $$pids | ForEach-Object { Stop-Process -Id $$_ -Force } }
-      |} else {
-      |  $$lines = netstat -ano | Select-String ":$p\\s"
-      |  $$pids = $$lines | ForEach-Object { ($$_ -split '\\s+')[-1] } | Select-Object -Unique
-      |  if ($$pids) { $$pids | ForEach-Object { taskkill /F /PID $$_ } }
-      |}
-      |""".stripMargin
-      os.proc("powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", ps).call(check = false)
-    } else {
-      // macOS/Linux: use lsof if available, fallback to fuser
-      val sh = s"""
-      |if command -v lsof >/dev/null 2>&1; then
-      |  pids=$$(lsof -ti tcp:$p 2>/dev/null)
-      |  if [ -n "$$pids" ]; then kill -9 $$pids; fi
-      |elif command -v fuser >/dev/null 2>&1; then
-      |  fuser -k -TERM $p/tcp || true
-      |  fuser -k -KILL $p/tcp || true
-      |fi
-      |""".stripMargin
-      os.proc("sh", "-lc", sh).call(check = false)
-    }
-
     BuildCtx.withFilesystemCheckerDisabled {
       new RefreshServer(lcs())
     }
