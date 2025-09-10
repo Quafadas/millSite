@@ -1,6 +1,6 @@
 package io.github.quafadas.millSite
 
-
+import laika.ast.LengthUnit
 import laika.api._
 import laika.format._
 import laika.io.syntax._
@@ -54,6 +54,10 @@ trait LaikaModule extends Module {
       .site.topNavigationBar(
         homeLink = IconLink.internal(Root / "index.md", HeliumIcon.home),
         navLinks = apiLink :+ repoLink
+      )
+      .site.layout(
+        contentWidth = LengthUnit.vw(85),
+        navigationWidth = LengthUnit.vw(15)
       )
 
       .site.inlineJS(

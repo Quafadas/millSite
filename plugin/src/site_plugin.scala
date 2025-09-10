@@ -25,6 +25,8 @@ import cats.effect.ExitCode
 import scala.util.{Try, Success, Failure}
 import scala.concurrent.Future
 import mill.api.BuildCtx
+import mill.util.VcsVersion
+
 implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
 
 trait SiteModule extends Module:
@@ -39,13 +41,28 @@ trait SiteModule extends Module:
 
   def repoLink = Task { "<repo-link>" }
 
-  def latestVersion: Simple[String] = Task { "0.0.0" }
+  def latestVersion: Simple[String] = Task {
+    VcsVersion.vcsState().lastTag.getOrElse("0.0.0").replace("v", "")
+  }
 
   def resources = Task.Sources { super.moduleDir / "resources" }
 
+  def forkArgs: Simple[Seq[String]] = Task{Seq.empty[String]}
+
+  def pathToImportMap: T[Option[PathRef]] = None
+
+  def scalaVersion = "3.7.2"
+
+  def mdocSiteVariables: Simple[Seq[(String, String)]] = Task{Seq("VERSION" -> latestVersion())}
+
   val mdocModule : MdocModule = new MdocModule {
-    override def scalaVersion: Simple[String] = "3.7.2"
+    override def scalaVersion: Simple[String] = SiteModule.this.scalaVersion
     override def mdocDir = defaultInternalDocDir
+    override def pathToImportMap: Simple[Option[PathRef]] = SiteModule.this.pathToImportMap()
+
+    override def siteVariables: Simple[Seq[(String, String)]] = mdocSiteVariables()
+
+    override def forkArgs: Simple[Seq[String]] = Task{super.forkArgs() ++ SiteModule.this.forkArgs()}
     override def docDir: Simple[PathRef] = Task.Source(mdocDir)
 
     override def moduleDeps: Seq[JavaModule] = unidocDeps
@@ -57,7 +74,7 @@ trait SiteModule extends Module:
 
   val laika = new LaikaModule {
     override val unidocs = new UnidocModule{
-        override def scalaVersion: Simple[String] = "3.7.2"
+        override def scalaVersion: Simple[String] = SiteModule.this.scalaVersion
         override def moduleDeps: Seq[JavaModule] = laikaUnidocDeps
         override def unidocDocumentTitle = unidocTitle()
 

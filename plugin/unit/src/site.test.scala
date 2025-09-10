@@ -12,6 +12,10 @@ object SiteTests extends TestSuite {
     test("Basic site processes mdoc") {
       object build extends TestRootModule with SiteModule {
 
+        override def mdocSiteVariables: Simple[Seq[(String, String)]] = Seq("VERSION" -> "0.0.0")
+
+        override def forkArgs: Simple[Seq[String]] = Seq("-Duser.name=test-user")
+
         lazy val millDiscover = Discover[this.type]
       }
 
@@ -22,7 +26,11 @@ object SiteTests extends TestSuite {
         val Right(resources) = eval(build.resources)
         val Right(resourcesMdoc) = eval(build.mdocModule.resources)
         val Right(compileResourcesMdoc) = eval(build.mdocModule.compileResources)
+        val Right(siteVariablesMdoc) = eval(build.mdocModule.siteVariables)
+        val Right(forkArgsMdoc) = eval(build.mdocModule.forkArgs)
 
+        assert(forkArgsMdoc.value == Seq("-Duser.name=test-user"))
+        assert(siteVariablesMdoc.value == Seq("VERSION" -> "0.0.0"))
 
         assert(resourcesMdoc.value.length == 2) // should include the site module resourceDir as well
         assert(compileResourcesMdoc.value.length == 2) // should include the site module resourceDir as well
