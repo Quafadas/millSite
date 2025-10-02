@@ -19,11 +19,12 @@ import ClasspathHelp.*
 import mill.api.Task.Simple
 import mill.api.BuildCtx
 
+
 trait MdocModule extends ScalaModule:
 
   val jsSiteModule: SiteJSModule =
     new SiteJSModule:
-      override def scalaVersion: Simple[String] = Task("3.7.2")
+      override def scalaVersion: Simple[String] = MdocModule.this.scalaVersion
       override def scalaJSVersion: Simple[String] = Task("1.19.0")
 
   /** Finds everything that is going to get published
@@ -137,8 +138,6 @@ trait MdocModule extends ScalaModule:
   //   defaultResolver().classpath(scalametaCommon())
   // }
 
-  def pathToImportMap: T[Option[PathRef]] = None
-
   /**
    * Configures mdocs arguments. See;
    *
@@ -151,20 +150,27 @@ trait MdocModule extends ScalaModule:
     // val scalametaCommon = scalaMetaCommonLib().map(_.path)
     val siteVars = siteVariables().toSeq.flatMap { case (k, v) => Seq(s"--site.$k", v) }
 
+    val jsArgs = jsSiteModule.moduleDeps.isEmpty match {
+      case true  => Seq.empty[String]
+      case false => Seq("--js-classpath", jsSiteModule.jsclasspath())
+    }
+
     // val toProcess = mdocFiles()
-    val importMap = pathToImportMap().map(_.path.toIO.getAbsolutePath)
+    val importMap =
+      if jsSiteModule.scalaJSImportMap().isEmpty then None
+      else Some(
+      jsSiteModule.mdocJsImportMap().path.toIO.getAbsolutePath
+      )
     val scalaCOpts = scalacOptions()
     Seq(
       "--in",
       docDir().path.toString(),
-      // "--out",
-      // Task.dest.toString()
     )
     ++ Seq("--classpath", toArgument(runCp ++ cp))
     ++ importMap.fold(Seq.empty[String])(i => Seq("--import-map-path", i))
     ++ (if scalaCOpts.nonEmpty then Seq("--scalac-options", scalaCOpts.mkString(" ")) else Seq.empty[String])
     ++ siteVars
-    // ++ Seq("--js-classpath", jsSiteModule.jsclasspath() )
+    // ++ jsArgs
   }
 
   /**
@@ -195,9 +201,14 @@ trait MdocModule extends ScalaModule:
     val args = mdocArgs().toArray ++ Seq("--out", Task.dest.toString())
     val mdocLibs_ = mDocLibs().map(_.path)
 
+    val jsPropFile = jsSiteModule.moduleDeps.isEmpty match {
+      case true  => Seq.empty[os.Path]
+      case false => Seq(jsSiteModule.mdocJsProperties().path)
+    }
+
     mill.util.Jvm.callProcess(
       mainClass = "mdoc.Main",
-      classPath = mdocLibs_,// ++ Seq(jsSiteModule.mdocJsProperties().path),
+      classPath = mdocLibs_ ++ jsPropFile,
       jvmArgs = forkArgs(),
       env = forkEnv(),
       mainArgs = args,

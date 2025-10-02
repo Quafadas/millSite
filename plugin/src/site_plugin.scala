@@ -26,10 +26,13 @@ import scala.util.{Try, Success, Failure}
 import scala.concurrent.Future
 import mill.api.BuildCtx
 import mill.util.VcsVersion
+import mill.scalajslib.api.ESModuleImportMapping
 
 implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
 
 trait SiteModule extends Module:
+
+  lazy val jsSiteModule = Option.empty[SiteJSModule]
 
   lazy val updateServer = Topic[IO, Unit].unsafeRunSync()
 
@@ -55,10 +58,21 @@ trait SiteModule extends Module:
 
   def mdocSiteVariables: Simple[Seq[(String, String)]] = Task{Seq("VERSION" -> latestVersion())}
 
+  def scalaJSImportMap: Simple[Seq[ESModuleImportMapping]] = Task {
+    Seq.empty[ESModuleImportMapping]
+  }
+
   val mdocModule : MdocModule = new MdocModule {
+
+    override val jsSiteModule = SiteModule.this.jsSiteModule.getOrElse(
+      new SiteJSModule{
+        override def scalaVersion: Simple[String] = SiteModule.this.scalaVersion
+        override def scalaJSVersion: Simple[String] = Task("1.20.1")
+        override def scalaJSImportMap: Simple[Seq[ESModuleImportMapping]] = SiteModule.this.scalaJSImportMap()
+      }
+    )
     override def scalaVersion: Simple[String] = SiteModule.this.scalaVersion
     override def mdocDir = defaultInternalDocDir
-    override def pathToImportMap: Simple[Option[PathRef]] = SiteModule.this.pathToImportMap()
 
     override def siteVariables: Simple[Seq[(String, String)]] = mdocSiteVariables()
 

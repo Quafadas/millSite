@@ -17,20 +17,36 @@ import os.SubPath
 import ClasspathHelp._
 import mill.scalajslib.api.ESFeatures
 import mill.scalajslib.api.ESVersion
+import mill.scalajslib.api.ModuleKind
+import mill.api.Task.Simple
+import mill.scalajslib.api.ESModuleImportMapping
+import upickle.default.*
+
+case class EsmMap(imports: Map[String, String]) derives ReadWriter
+
 
 val repos = "https://packages.schroders.com/artifactory/maven"
 
 trait SiteJSModule extends ScalaJSModule {
 
-  override def repositories: T[Seq[String]] = Task{ 
-    super.repositories() ++ 
-    Seq(      
+  override def repositories: T[Seq[String]] = Task{
+    super.repositories() ++
+    Seq(
     )
   }
 
   def mdocVersion: Task[String] = Task { Versions.mdocVersion }
   def domVersion: Task[String] = Task { Versions.domVersion }
   // def scalaJsCompilerVersion = "2.13.14"
+
+
+  def mdocJsImportMap = Task {
+    val defined = scalaJSImportMap()
+    val out = EsmMap(defined.collect { case ESModuleImportMapping.Prefix(prefix, replacement) => (prefix, replacement) }.toMap)
+    val dest = Task.dest / "mdoc_js_import_map.json"
+    os.write(dest, upickle.default.write(out))
+    PathRef(dest)
+  }
 
   override def mvnDeps = Task {
     super.mvnDeps() ++ Seq(
@@ -55,17 +71,17 @@ trait SiteJSModule extends ScalaJSModule {
 
   def jsLinkerClassPath = Task( linkerLibs().map(_.path))
 
-  def mdocJsProperties = Task { 
-    val mdocPropsFile = Task.dest / "mdoc.properties"    
+  def mdocJsProperties = Task {
+    val mdocPropsFile = Task.dest / "mdoc.properties"
 
     val paths = linkerLibs()
 
     val mdocProps: Map[String, String] = Map(
-      "js-scalac-options" -> (List("-scalajs") ++ scalacOptions())
-        .mkString(" "),
+      "js-scalac-options" -> (List("-scalajs") ++ scalacOptions()).mkString(" "),
       "js-linker-classpath" -> toArgument(paths.map(_.path)),
       "js-classpath" -> toArgument(runClasspath().map(_.path)),
-      "js-module-kind" -> jsModuleKind()
+      "js-module-kind" -> moduleKind().toString(),
+      "import-map-path" -> mdocJsImportMap().path.toIO.getAbsolutePath
       // "js-out-prefix" -> "_assets/js"
     )
     os.write(
@@ -75,7 +91,7 @@ trait SiteJSModule extends ScalaJSModule {
     PathRef(Task.dest)
   }
 
-  def jsModuleKind = Task("ESModule")
+  override def moduleKind: Simple[ModuleKind] = ModuleKind.ESModule
 
   protected def linkerDependency = Task {
     val sjs = scalaJSVersion()
@@ -85,29 +101,7 @@ trait SiteJSModule extends ScalaJSModule {
           mvn"org.scala-js:scalajs-linker_2.13:$sjs",
           mvn"org.scalameta:mdoc-js-worker_3:${mdocVersion()}"
         )
-      case other =>
-        Seq(
-          mvn"org.scala-js:scalajs-linker_2.13:$sjs",
-          mvn"org.scalameta:mdoc-js-worker_2.13:${mdocVersion()}"
-        )
-    }
-  }
-
-  // /** Follows mdocs documentation, i.e. intransitive
-  //   */
-
-  def scala2JsCompilerIntransitive: Task[Seq[BoundDep]] = Task {
-    val sjs = scalaJSVersion()
-    artifactScalaVersion() match {
-      case "3" => Seq[BoundDep]()
-      case other =>
-        Seq(
-          Lib.depToBoundDep(
-            mvn"org.scala-js:scalajs-compiler_2.13.14:$sjs"
-              .exclude("*" -> "*"),
-            scalaVersion()
-          )
-        )
+      case other => ???
     }
   }
 
@@ -140,13 +134,7 @@ trait SiteJSModule extends ScalaJSModule {
           mvn"org.scala-lang::tasty-core:${scalaVersion()}",
           mvn"org.scala-lang.modules::scala-xml:2.1.0"
         )
-      case other =>
-        Seq(
-          mvn"org.scalameta:mdoc-js_2.13:${mdocVersion()}",
-          mvn"org.scala-lang:scala-compiler:${scalaVersion()}",
-          mvn"org.scalajs:scalajs-dom_sjs1_2.13:2.8.0",
-          mvn"org.scalameta:mdoc-js-worker_2.13:${mdocVersion()}"
-        )
+      case other => ???
     }
 
   }
