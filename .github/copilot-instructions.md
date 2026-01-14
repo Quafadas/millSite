@@ -6,7 +6,7 @@ markdown to html conversion through laika.
 
 API documentation through unidoc and copied "as is" into the website.
 
-Compile with `mill pluging.compile`.
+Compile with `mill plugin.compile`
 
 Tests can be run through `mill plugin.unit`
 
