@@ -6,7 +6,7 @@ import mill.scalalib.*
 import mill.scalajslib.*
 import coursier.maven.MavenRepository
 import mill.api.Result
-import mill.util.Jvm.createJar
+import mill.util.Jvm
 
 // import mill.scalalib.api.CompilationResult
 // import de.tobiasroeser.mill.vcs.version.VcsVersion
@@ -18,6 +18,7 @@ import os.SubPath
 import ClasspathHelp.*
 import mill.api.Task.Simple
 import mill.api.BuildCtx
+import java.net.URLClassLoader
 
 
 trait MdocModule extends ScalaModule:
@@ -25,7 +26,7 @@ trait MdocModule extends ScalaModule:
   val jsSiteModule: SiteJSModule =
     new SiteJSModule:
       override def scalaVersion: Simple[String] = MdocModule.this.scalaVersion
-      override def scalaJSVersion: Simple[String] = Task("1.19.0")
+      override def scalaJSVersion: Simple[String] = Task("1.20.2")
 
   /** Finds everything that is going to get published
     *
@@ -92,6 +93,14 @@ trait MdocModule extends ScalaModule:
 
   def mDocLibs = Task {
     defaultResolver().classpath(mdocDep())
+  }
+
+  private def mdocClassPath = Task {
+    val jsPropFile =
+      if jsSiteModule.moduleDeps.isEmpty then Seq.empty[os.Path]
+      else Seq(jsSiteModule.mdocJsProperties().path)
+
+    mDocLibs().map(_.path) ++ jsPropFile
   }
 
   /**
@@ -173,6 +182,10 @@ trait MdocModule extends ScalaModule:
     // ++ jsArgs
   }
 
+  private def mdocWorker = Task.Worker {
+    new MdocWorker(mdocClassPath(), forkArgs())
+  }
+
   /**
    * Runs mdoc to generate processed documentation into this task's destination directory.
    *
@@ -195,26 +208,56 @@ trait MdocModule extends ScalaModule:
    */
 
   def mdoc2: Task.Simple[PathRef] = Task {
-
     compile()
-    docDir() // need this dependance otherwise no updating
-    val args = mdocArgs().toArray ++ Seq("--out", Task.dest.toString())
-    val mdocLibs_ = mDocLibs().map(_.path)
+    docDir() // force dependency tracking
 
-    val jsPropFile = jsSiteModule.moduleDeps.isEmpty match {
-      case true  => Seq.empty[os.Path]
-      case false => Seq(jsSiteModule.mdocJsProperties().path)
+    val args = mdocArgs() ++ Seq("--out", Task.dest.toString())
+    mdocWorker().run(args)
+    PathRef(Task.dest)
+  }
+
+  private final class MdocWorker(classpath: Seq[os.Path], forkArgs: Seq[String]) extends AutoCloseable {
+    private val loader: URLClassLoader = Jvm.createClassLoader(classpath)
+    private val mainOps = loader.loadClass("mdoc.internal.cli.MainOps$").getField("MODULE$").get(null)
+    private val mainOpsClass = mainOps.getClass
+    private val settingsClass = loader.loadClass("mdoc.internal.cli.Settings")
+    private val settingsMethod = mainOpsClass.getMethod("settings", classOf[Array[String]])
+    private val processMethod = mainOpsClass.getMethod("process", settingsClass)
+    private val reporterMethod = settingsClass.getMethod("reporter")
+
+    private def parseSystemProps: Seq[(String, String)] =
+      forkArgs.collect {
+        case arg if arg.startsWith("-D") =>
+          val kv = arg.drop(2)
+          kv.indexOf('=') match
+            case -1 => kv -> ""
+            case idx => kv.take(idx) -> kv.drop(idx + 1)
+      }
+
+    private def withSystemProps[T](body: => T): T = {
+      val props = parseSystemProps
+      val originals = props.map { case (k, _) => k -> Option(System.getProperty(k)) }
+      props.foreach { case (k, v) => System.setProperty(k, v) }
+      try body
+      finally originals.foreach {
+        case (k, Some(v)) => System.setProperty(k, v)
+        case (k, None)    => System.clearProperty(k)
+      }
     }
 
-    mill.util.Jvm.callProcess(
-      mainClass = "mdoc.Main",
-      classPath = mdocLibs_ ++ jsPropFile,
-      jvmArgs = forkArgs(),
-      env = forkEnv(),
-      mainArgs = args,
-      // cpPassingJarPath =
-      //   Some(Task.dest) // classpath can be long. On windows will barf without passing as Jar
-    )
-    PathRef(Task.dest)
+    def run(args: Seq[String]): Unit = this.synchronized {
+      withSystemProps {
+        mill.api.ClassLoader.withContextClassLoader(loader) {
+          val settings = settingsMethod.invoke(mainOps, args.toArray)
+          val exitCode = processMethod.invoke(mainOps, settings).asInstanceOf[Int]
+          val reporter = reporterMethod.invoke(settings)
+          reporter.getClass.getMethod("reportAll").invoke(reporter)
+
+          if exitCode != 0 then throw new RuntimeException(s"mdoc failed with exit code $exitCode")
+        }
+      }
+    }
+
+    override def close(): Unit = loader.close()
   }
 end MdocModule
