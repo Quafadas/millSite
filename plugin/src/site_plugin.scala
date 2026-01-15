@@ -54,7 +54,7 @@ trait SiteModule extends Module:
 
   def pathToImportMap: T[Option[PathRef]] = None
 
-  def scalaVersion = "3.7.2"
+  def scalaVersion = Versions.scalaVersion
 
   def mdocSiteVariables: Simple[Seq[(String, String)]] = Task{Seq("VERSION" -> latestVersion())}
 
@@ -67,7 +67,7 @@ trait SiteModule extends Module:
     override val jsSiteModule = SiteModule.this.jsSiteModule.getOrElse(
       new SiteJSModule{
         override def scalaVersion: Simple[String] = SiteModule.this.scalaVersion
-        override def scalaJSVersion: Simple[String] = Task("1.20.1")
+        override def scalaJSVersion: Simple[String] = Task(Versions.scalaJsVersion)
         override def scalaJSImportMap: Simple[Seq[ESModuleImportMapping]] = SiteModule.this.scalaJSImportMap()
       }
     )

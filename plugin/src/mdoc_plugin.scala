@@ -26,7 +26,7 @@ trait MdocModule extends ScalaModule:
   val jsSiteModule: SiteJSModule =
     new SiteJSModule:
       override def scalaVersion: Simple[String] = MdocModule.this.scalaVersion
-      override def scalaJSVersion: Simple[String] = Task("1.20.2")
+      override def scalaJSVersion: Simple[String] = Task(Versions.scalaJsVersion)
 
   /** Finds everything that is going to get published
     *
@@ -70,7 +70,7 @@ trait MdocModule extends ScalaModule:
 
   override def mvnDeps: T[Seq[Dep]] = super.mvnDeps() ++
     Seq(
-      mvn"org.scalameta:common_2.13:4.13.9"
+      mvn"org.scalameta:common_2.13::${Versions.scalaMetaVersion}"
     )
 
   def siteVariables: Task.Simple[Seq[(String, String)]] = Task {
@@ -217,14 +217,7 @@ trait MdocModule extends ScalaModule:
   }
 
   private final class MdocWorker(classpath: Seq[os.Path], forkArgs: Seq[String]) extends AutoCloseable {
-    private val loader: URLClassLoader = Jvm.createClassLoader(classpath)
-    private val mainOps = loader.loadClass("mdoc.internal.cli.MainOps$").getField("MODULE$").get(null)
-    private val mainOpsClass = mainOps.getClass
-    private val settingsClass = loader.loadClass("mdoc.internal.cli.Settings")
-    private val settingsMethod = mainOpsClass.getMethod("settings", classOf[Array[String]])
-    private val processMethod = mainOpsClass.getMethod("process", settingsClass)
-    private val reporterMethod = settingsClass.getMethod("reporter")
-
+    private var loader: URLClassLoader = null
     private def parseSystemProps: Seq[(String, String)] =
       forkArgs.collect {
         case arg if arg.startsWith("-D") =>
@@ -233,6 +226,8 @@ trait MdocModule extends ScalaModule:
             case -1 => kv -> ""
             case idx => kv.take(idx) -> kv.drop(idx + 1)
       }
+
+    override def close(): Unit = Option(loader).foreach(_.close())
 
     private def withSystemProps[T](body: => T): T = {
       val props = parseSystemProps
@@ -246,18 +241,38 @@ trait MdocModule extends ScalaModule:
     }
 
     def run(args: Seq[String]): Unit = this.synchronized {
-      withSystemProps {
-        mill.api.ClassLoader.withContextClassLoader(loader) {
-          val settings = settingsMethod.invoke(mainOps, args.toArray)
-          val exitCode = processMethod.invoke(mainOps, settings).asInstanceOf[Int]
-          val reporter = reporterMethod.invoke(settings)
-          reporter.getClass.getMethod("reportAll").invoke(reporter)
+      loader = Jvm.createClassLoader(classpath)
+      try
+        withSystemProps {
+          mill.api.ClassLoader.withContextClassLoader(loader) {
+            val mainObj = loader.loadClass("mdoc.Main$").getField("MODULE$").get(null)
+            val process = mainObj.getClass.getMethod(
+              "process",
+              classOf[Array[String]],
+              classOf[java.io.PrintStream],
+              classOf[java.nio.file.Path]
+            )
+            val exitCode = try {
+              process
+                .invoke(
+                  mainObj,
+                  args.toArray,
+                  /* silence normal mdoc stdout to keep tests clean */
+                  new java.io.PrintStream(java.io.OutputStream.nullOutputStream()),
+                  java.nio.file.Path.of(os.pwd.toString())
+                )
+                .asInstanceOf[Int]
+            } catch {
+              case ite: java.lang.reflect.InvocationTargetException =>
+                val cause = Option(ite.getCause).getOrElse(ite)
+                throw new RuntimeException(s"mdoc invocation failed: ${cause.getClass.getSimpleName}: ${cause.getMessage}", cause)
+            }
 
-          if exitCode != 0 then throw new RuntimeException(s"mdoc failed with exit code $exitCode")
+            if exitCode != 0 then throw new RuntimeException(s"mdoc failed with exit code $exitCode")
+          }
         }
-      }
+      finally 
+        Option(loader).foreach(_.close())
     }
-
-    override def close(): Unit = loader.close()
   }
 end MdocModule

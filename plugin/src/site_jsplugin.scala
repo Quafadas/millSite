@@ -32,6 +32,7 @@ trait SiteJSModule extends ScalaJSModule {
   override def repositories: T[Seq[String]] = Task{
     super.repositories() ++
     Seq(
+      "https://repo1.maven.org/maven2"
     )
   }
 
@@ -48,11 +49,26 @@ trait SiteJSModule extends ScalaJSModule {
     PathRef(dest)
   }
 
+/**
   override def mvnDeps = Task {
     super.mvnDeps() ++ Seq(
       mvn"org.scala-js::scalajs-dom::${domVersion()}"
-      // mvn"org.scala-js:scalajs-library_2.13:${scalaJSVersion()}" shoudl be covered by mandatory ivyDeps
-    ) ++ super.mandatoryMvnDeps()
+    ) ++ mandatoryMvnDeps()
+  }
+
+  override def mandatoryMvnDeps = Task {
+    super.mandatoryMvnDeps().map { dep =>
+      val module = dep.dep.module
+      val isScalaJsOrg = module.organization.value == "org.scala-js"
+      val isStdlib = module.name.value == "scalajs-library" || module.name.value == "scalajs-scalalib"
+
+      if (isScalaJsOrg && isStdlib) {
+        dep.copy(cross = dep.cross match {
+          case c: mill.api.CrossVersion.Constant => c.copy(platformed = true)
+          case other => other
+        })
+      } else dep
+    }
   }
 
   // // /** Does this do anything?
@@ -113,12 +129,12 @@ trait SiteJSModule extends ScalaJSModule {
     val mdocV = mdocVersion()
     val dep = artifactScalaVersion() match {
       case "3"   => Seq(mvn"org.scalameta:mdoc-js-worker_3:$mdocV")
-      case other => Seq(mvn"org.scalameta:mdoc-js-worker_$other:$mdocV")
+      case other => ???
     }
   }
 
   override def scalacPluginMvnDeps = super.scalacPluginMvnDeps() ++ Seq(
-    mvn"org.scala-js:scalajs-compiler_2.13.14:${scalaJSVersion()}"
+    mvn"org.scala-js:scalajs-compiler_2.13.18:${scalaJSVersion()}"
   )
 
   def mdocDep = Task {

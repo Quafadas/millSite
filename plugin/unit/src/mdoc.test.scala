@@ -11,7 +11,7 @@ object MdocTests extends TestSuite {
   def tests: Tests = Tests {
     test("mdoc basic processes mdoc") {
       object build extends TestRootModule with MdocModule {
-        override def scalaVersion: Simple[String] = "3.7.2"
+        override def scalaVersion: Simple[String] = "3.8.0"
 
         override def siteVariables: Simple[Seq[(String, String)]] = Seq(("VERSION", "1.2.3"))
 

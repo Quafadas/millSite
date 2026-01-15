@@ -8,17 +8,21 @@ import utest.*
 import mill.api.Task.Simple
 import mill.scalajslib.ScalaJSModule
 import mill.scalajslib.api.ESModuleImportMapping
+import mill.api.Task
 
 object MdocJsTests extends TestSuite {
   def tests: Tests = Tests {
     test("mdoc basic processes mdoc") {
 
+      inline val scalaVersionS = "3.8.0"
+      inline val scalaJsVersionS = "1.20.2"
+
       object build extends TestRootModule  {
         val jvm = new MdocModule {
-          override def scalaVersion: Simple[String] = "3.7.2"
+          override def scalaVersion: Simple[String] = Task{scalaVersionS}
           override val jsSiteModule = new SiteJSModule:
-            override def scalaVersion: Simple[String] = "3.7.2"
-            override def scalaJSVersion: Simple[String] = "1.20.1"
+            override def scalaVersion: Simple[String] = Task{scalaVersionS}
+            override def scalaJSVersion: Simple[String] = Task{scalaJsVersionS}
             override def scalaJSImportMap: Simple[Seq[ESModuleImportMapping]] = Seq(
               ESModuleImportMapping.Prefix("BarJsPackage", "bar_js_package.js")
             )
@@ -26,8 +30,8 @@ object MdocJsTests extends TestSuite {
           }
 
         val js = new ScalaJSModule{
-          override def scalaVersion: Simple[String] = "3.7.2"
-          override def scalaJSVersion: Simple[String] = "1.20.1"
+          override def scalaVersion: Simple[String] = Task{scalaVersionS}
+          override def scalaJSVersion: Simple[String] = Task{scalaJsVersionS}
         }
 
         lazy val millDiscover = Discover[this.type]

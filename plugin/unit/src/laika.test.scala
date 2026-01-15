@@ -24,7 +24,7 @@ object LaikaTests extends TestSuite {
 
         val unidocs = new UnidocModule {
 
-          override def scalaVersion: Simple[String] = "3.7.2"
+          override def scalaVersion: Simple[String] = "3.8.0"
 
           override def unidocDocumentTitle: Simple[String] = "My Project API"
 

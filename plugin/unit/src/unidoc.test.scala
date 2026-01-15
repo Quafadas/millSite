@@ -17,7 +17,7 @@ object UnidocTests extends TestSuite {
 
       object build extends TestRootModule with SiteModule {
         lazy val common: ScalaModule = new ScalaModule {
-          def scalaVersion: Simple[String] = "3.7.2"
+          def scalaVersion: Simple[String] = "3.8.0"
         }
 
         override def unidocDeps: Seq[JavaModule] = Seq(common)
