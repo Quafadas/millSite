@@ -89,6 +89,16 @@ trait SiteModule extends Module:
       override def moduleDeps: Seq[JavaModule] = laikaUnidocDeps
       override def unidocDocumentTitle = unidocTitle()
 
+      // Default to temporary directories to avoid triggering full scaladoc/unidoc
+      // unless a user has explicitly provided modules to document via `moduleDeps`.
+      override def unidocLocal: Simple[PathRef] = Task {
+        if moduleDeps.nonEmpty then super.unidocLocal() else PathRef(os.temp.dir())
+      }
+
+      override def unidocSite: Simple[PathRef] = Task {
+        if moduleDeps.nonEmpty then super.unidocSite() else PathRef(os.temp.dir())
+      }
+
     override def inputDir: Simple[PathRef] = mdocModule.mdoc2()
     override def laikaUnidocDeps: Seq[JavaModule] = unidocDeps
 

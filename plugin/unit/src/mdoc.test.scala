@@ -39,6 +39,12 @@ object MdocTests extends TestSuite:
         assert(
           os.read.lines(resultPath / "hi.mdoc.md").mkString("").contains("1.2.3")
         )
+
+        // Run again and assert mdoc worker was not invoked (in-memory cache used)
+        val Right(countAfterFirst) = eval(build.mdocWorkerRunCount).runtimeChecked
+        val Right(result2) = eval(build.mdoc2).runtimeChecked
+        val Right(countAfterSecond) = eval(build.mdocWorkerRunCount).runtimeChecked
+        assert(countAfterSecond.value == countAfterFirst.value)
       }
     }
   }

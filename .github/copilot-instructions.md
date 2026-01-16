@@ -10,3 +10,8 @@ Compile with `mill plugin.compile`
 
 Tests can be run through `mill plugin.unit`
 
+## Working effectively
+
+- Run tests after each change `mill plugin.unit`
+- run formatter after each change `scalafmt`
+
