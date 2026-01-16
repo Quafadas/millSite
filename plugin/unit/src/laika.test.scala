@@ -34,10 +34,10 @@ object LaikaTests extends TestSuite:
       val resourceFolder = os.Path(sys.env("MILL_TEST_RESOURCE_DIR"))
 
       UnitTester(build, resourceFolder / "laika_basic").scoped { eval =>
-        val Right(result) = eval(build.generateSite)
+        val Right(result) = eval(build.generateSite).runtimeChecked
         println(result)
         // No deps so don't include API
-        val Right(includeapi) = eval(build.includeApi)
+        val Right(includeapi) = eval(build.includeApi).runtimeChecked
         assert(!includeapi.value)
         assert(
           os.exists(result.value.path / "index.html")

@@ -39,9 +39,9 @@ object MdocJsTests extends TestSuite:
 
       UnitTester(build, resourceFolder / "mdoc_js").scoped { eval =>
         // TODO unit test that the import map is actually used
-        val Right(importFlags) = eval(build.jvm.jsSiteModule.mdocJsImportMap)
+        val Right(importFlags) = eval(build.jvm.jsSiteModule.mdocJsImportMap).runtimeChecked
 
-        val Right(result) = eval(build.jvm.mdoc2)
+        val Right(result) = eval(build.jvm.mdoc2).runtimeChecked
         println(result)
         val resultPath = result.value.path
         assert(

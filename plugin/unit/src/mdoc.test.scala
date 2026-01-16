@@ -21,7 +21,7 @@ object MdocTests extends TestSuite:
       val resourceFolder = os.Path(sys.env("MILL_TEST_RESOURCE_DIR"))
 
       UnitTester(build, resourceFolder / "mdoc_basic").scoped { eval =>
-        val Right(result) = eval(build.mdoc2)
+        val Right(result) = eval(build.mdoc2).runtimeChecked
         println(result)
         val resultPath = result.value.path
         assert(

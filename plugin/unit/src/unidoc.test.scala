@@ -26,22 +26,22 @@ object UnidocTests extends TestSuite:
 
       UnitTester(build, resourceFolder / "unidoc_example").scoped { eval =>
 
-        val Right(api) = eval(build.common.compile)
+        val Right(api) = eval(build.common.compile).runtimeChecked
 
-        val Right(withApi) = eval(build.laika.includeApi)
+        val Right(withApi) = eval(build.laika.includeApi).runtimeChecked
 
-        val Right(checkHelium) = eval(build.laika.helium)
-        val Right(checkApi) = eval(build.laika.stageSite)
+        val Right(checkHelium) = eval(build.laika.helium).runtimeChecked
+        val Right(checkApi) = eval(build.laika.stageSite).runtimeChecked
         val apiDocPath = checkApi.value.path
 
         assert(os.exists(apiDocPath / "api" / "index.html"))
 
-        val Right(unidoc) = eval(build.laika.unidocs.unidocLocal)
+        val Right(unidoc) = eval(build.laika.unidocs.unidocLocal).runtimeChecked
         // println(unidoc.value.path)
 
-        val Right(mdocs) = eval(build.mdocModule.mdoc2)
+        val Right(mdocs) = eval(build.mdocModule.mdoc2).runtimeChecked
 
-        val Right(site) = eval(build.siteGen)
+        val Right(site) = eval(build.siteGen).runtimeChecked
         // If the "with API "
 
       //   val Right(result) = eval(build.siteGen)

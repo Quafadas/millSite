@@ -125,7 +125,7 @@ trait SiteModule extends Module:
   //   PathRef(Task.dest)
   // }
 
-  def lcs = Task.Worker {
+  def lcs = Task.Anon {
     val port_ = port()
     val sitePathOnly_ = sitePathOnly()
     BuildCtx.withFilesystemCheckerDisabled {
