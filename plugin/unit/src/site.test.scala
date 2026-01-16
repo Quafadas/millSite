@@ -7,27 +7,27 @@ import mill.util.TokenReaders.*
 import utest.*
 import mill.api.Task.Simple
 
-object SiteTests extends TestSuite {
+object SiteTests extends TestSuite:
   def tests: Tests = Tests {
     test("Basic site processes mdoc") {
-      object build extends TestRootModule with SiteModule {
+      object build extends TestRootModule with SiteModule:
 
         override def mdocSiteVariables: Simple[Seq[(String, String)]] = Seq("VERSION" -> "0.0.0")
 
         override def forkArgs: Simple[Seq[String]] = Seq("-Duser.name=test-user")
 
         lazy val millDiscover = Discover[this.type]
-      }
+      end build
 
       val resourceFolder = os.Path(sys.env("MILL_TEST_RESOURCE_DIR"))
 
       UnitTester(build, resourceFolder / "simple_site").scoped { eval =>
 
-        val Right(resources) = eval(build.resources)
-        val Right(resourcesMdoc) = eval(build.mdocModule.resources)
-        val Right(compileResourcesMdoc) = eval(build.mdocModule.compileResources)
-        val Right(siteVariablesMdoc) = eval(build.mdocModule.siteVariables)
-        val Right(forkArgsMdoc) = eval(build.mdocModule.forkArgs)
+        val Right(resources) = eval(build.resources).runtimeChecked
+        val Right(resourcesMdoc) = eval(build.mdocModule.resources).runtimeChecked
+        val Right(compileResourcesMdoc) = eval(build.mdocModule.compileResources).runtimeChecked
+        val Right(siteVariablesMdoc) = eval(build.mdocModule.siteVariables).runtimeChecked
+        val Right(forkArgsMdoc) = eval(build.mdocModule.forkArgs).runtimeChecked
 
         assert(forkArgsMdoc.value == Seq("-Duser.name=test-user"))
         assert(siteVariablesMdoc.value == Seq("VERSION" -> "0.0.0"))
@@ -35,14 +35,14 @@ object SiteTests extends TestSuite {
         assert(resourcesMdoc.value.length == 2) // should include the site module resourceDir as well
         assert(compileResourcesMdoc.value.length == 2) // should include the site module resourceDir as well
 
-        val Right(result) = eval(build.siteGen)
+        val Right(result) = eval(build.siteGen).runtimeChecked
 
         val resultPath = result.value.path
         assert(
-            os.exists(resultPath / "index.html")
+          os.exists(resultPath / "index.html")
         )
 
       }
     }
   }
-}
+end SiteTests

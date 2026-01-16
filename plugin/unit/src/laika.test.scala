@@ -17,35 +17,33 @@ import mill.api.Task.Command
 import mill.api.Task
 import mainargs.Flag
 
-object LaikaTests extends TestSuite {
+object LaikaTests extends TestSuite:
   def tests: Tests = Tests {
     test("laika works for simple setup") {
-      object build extends TestRootModule with LaikaModule {
+      object build extends TestRootModule with LaikaModule:
 
-        val unidocs = new UnidocModule {
+        val unidocs = new UnidocModule:
 
-          override def scalaVersion: Simple[String] = "3.7.2"
+          override def scalaVersion: Simple[String] = "3.8.0"
 
           override def unidocDocumentTitle: Simple[String] = "My Project API"
 
-        }
-
         lazy val millDiscover = Discover[this.type]
-      }
+      end build
 
       val resourceFolder = os.Path(sys.env("MILL_TEST_RESOURCE_DIR"))
 
       UnitTester(build, resourceFolder / "laika_basic").scoped { eval =>
-        val Right(result) = eval(build.generateSite)
+        val Right(result) = eval(build.generateSite).runtimeChecked
         println(result)
         // No deps so don't include API
-        val Right(includeapi) = eval(build.includeApi)
+        val Right(includeapi) = eval(build.includeApi).runtimeChecked
         assert(!includeapi.value)
         assert(
-            os.exists(result.value.path / "index.html")
-          )
+          os.exists(result.value.path / "index.html")
+        )
       }
     }
 
   }
-}
+end LaikaTests

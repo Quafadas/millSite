@@ -1,5 +1,5 @@
 package BarJsPackage
 
-object BarJsObj {
+object BarJsObj:
   def barMethod: String = "JS DOCS"
-}
+end BarJsObj

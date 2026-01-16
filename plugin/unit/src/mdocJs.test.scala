@@ -8,43 +8,45 @@ import utest.*
 import mill.api.Task.Simple
 import mill.scalajslib.ScalaJSModule
 import mill.scalajslib.api.ESModuleImportMapping
+import mill.api.Task
 
-object MdocJsTests extends TestSuite {
+object MdocJsTests extends TestSuite:
   def tests: Tests = Tests {
     test("mdoc basic processes mdoc") {
 
-      object build extends TestRootModule  {
-        val jvm = new MdocModule {
-          override def scalaVersion: Simple[String] = "3.7.2"
+      inline val scalaVersionS = "3.8.0"
+      inline val scalaJsVersionS = "1.20.2"
+
+      object build extends TestRootModule:
+        val jvm = new MdocModule:
+          override def scalaVersion: Simple[String] = Task(scalaVersionS)
           override val jsSiteModule = new SiteJSModule:
-            override def scalaVersion: Simple[String] = "3.7.2"
-            override def scalaJSVersion: Simple[String] = "1.20.1"
+            override def scalaVersion: Simple[String] = Task(scalaVersionS)
+            override def scalaJSVersion: Simple[String] = Task(scalaJsVersionS)
             override def scalaJSImportMap: Simple[Seq[ESModuleImportMapping]] = Seq(
               ESModuleImportMapping.Prefix("BarJsPackage", "bar_js_package.js")
             )
             override def moduleDeps = Seq(js)
-          }
 
-        val js = new ScalaJSModule{
-          override def scalaVersion: Simple[String] = "3.7.2"
-          override def scalaJSVersion: Simple[String] = "1.20.1"
-        }
+        val js = new ScalaJSModule:
+          override def scalaVersion: Simple[String] = Task(scalaVersionS)
+          override def scalaJSVersion: Simple[String] = Task(scalaJsVersionS)
 
         lazy val millDiscover = Discover[this.type]
-      }
+      end build
 
       val resourceFolder = os.Path(sys.env("MILL_TEST_RESOURCE_DIR"))
 
       UnitTester(build, resourceFolder / "mdoc_js").scoped { eval =>
-        //TODO unit test that the import map is actually used
-        val Right(importFlags) = eval(build.jvm.jsSiteModule.mdocJsImportMap)
+        // TODO unit test that the import map is actually used
+        val Right(importFlags) = eval(build.jvm.jsSiteModule.mdocJsImportMap).runtimeChecked
 
-        val Right(result) = eval(build.jvm.mdoc2)
+        val Right(result) = eval(build.jvm.mdoc2).runtimeChecked
         println(result)
         val resultPath = result.value.path
         assert(
-            os.exists(resultPath / "hi.md")
-          )
+          os.exists(resultPath / "hi.md")
+        )
 
         assert(
           os.read.lines(resultPath / "hi.md").mkString("").contains("BarJsPackage.BarJsObj.barMethod")
@@ -53,4 +55,4 @@ object MdocJsTests extends TestSuite {
       }
     }
   }
-}
+end MdocJsTests

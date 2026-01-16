@@ -1,5 +1,5 @@
 package FooPackage
 
-object FooObj {
+object FooObj:
   def fooMethod: Int = 42
-}
+end FooObj
