@@ -14,6 +14,7 @@ object UnidocTests extends TestSuite:
     test("unidoc included in site basic processes mdoc") {
 
       object build extends TestRootModule with SiteModule:
+        override def scalaVersion: Simple[String] = "3.8.0"
         lazy val common: ScalaModule = new ScalaModule:
           def scalaVersion: Simple[String] = "3.8.0"
 

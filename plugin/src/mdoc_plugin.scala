@@ -401,26 +401,28 @@ trait MdocModule extends ScalaModule:
             val inDir = os.Path(inOpt.get)
             val outDir = os.Path(outOpt.get)
 
-            // gather input docs (md, mdoc.md) and time the scan+hash phase
+            // gather all input files and time the scan+hash phase (include non-markdown assets)
             val tScanStart = System.nanoTime()
-            val inputFiles = os
+            val allInputFiles = os
               .walk(inDir)
-              .filter { f =>
-                val s = f.toString
-                (s.endsWith(".md") || s.endsWith(".mdoc.md")) && os.isFile(f)
-              }
+              .filter(os.isFile(_))
               .toSeq
+
+            val inputFiles = allInputFiles.filter { f =>
+              val s = f.toString
+              s.endsWith(".md") || s.endsWith(".mdoc.md")
+            }
 
             // build config fingerprint (args excluding --in/--out flags and their values and the fork args)
             def stripFlags(flags: Set[String], arr: Seq[String]): Seq[String] =
               val buf = scala.collection.mutable.ArrayBuffer.empty[String]
               var i = 0
-              while i < arr.length do
-                if flags.contains(arr(i)) && i + 1 < arr.length then i += 2
+              while (i < arr.length) do
+                if flags.contains(arr(i)) && i + 1 < arr.length then
+                  i += 2
                 else
                   buf += arr(i)
                   i += 1
-              end while
               buf.toSeq
             end stripFlags
 
@@ -428,8 +430,8 @@ trait MdocModule extends ScalaModule:
             val configBytes = (baseArgs.mkString(" ") + forkArgs.mkString(" ")).getBytes("UTF-8")
             val configHash = sha1(configBytes)
 
-            // compute per-file hashes
-            val fileHashes: Map[String, String] = inputFiles.map { p =>
+            // compute per-file hashes for all input files (including assets)
+            val fileHashes: Map[String, String] = allInputFiles.map { p =>
               val rel = p.relativeTo(inDir).toString()
               val content = os.read.bytes(p)
               val h = sha1(content ++ configHash.getBytes("UTF-8"))
@@ -472,7 +474,23 @@ trait MdocModule extends ScalaModule:
               os.makeDir.all(outFile / os.up)
             }
 
-            val pairArgs = filesToProcess.flatMap { rel =>
+            // Partition changed files into markdown files that need mdoc processing and other files (assets)
+            val (mdFilesToProcess, otherFilesToProcess) = filesToProcess.partition { rel =>
+              rel.endsWith(".md") || rel.endsWith(".mdoc.md")
+            }
+
+            // Copy changed non-markdown files (assets, images, etc.) directly to the output and cache them
+            otherFilesToProcess.foreach { rel =>
+              val src = joinPath(inDir, rel)
+              val dest = joinPath(outDir, rel)
+              // parent dirs already created above
+              os.copy.over(src, dest)
+              // store copied file into in-memory cache
+              val h = changed(rel)
+              storeToMemCache(h, rel, outDir)
+            }
+
+            val pairArgs = mdFilesToProcess.flatMap { rel =>
               val inFile = joinPath(inDir, rel).toString
               val outFile = joinPath(outDir, rel).toString
               Seq("--in", inFile, "--out", outFile)
@@ -567,7 +585,7 @@ trait MdocModule extends ScalaModule:
               stdout.println(f"  fallbackNanos: $fallbackNanos ns (${nsToMs(fallbackNanos)}%.3f ms)")
 
               // Print concise counters and small file list if helpful
-              stdout.println(s"  numInputFiles: ${inputFiles.length}")
+              stdout.println(s"  numInputFiles: ${allInputFiles.length}")
               stdout.println(s"  numChangedFiles: ${changed.size}")
               stdout.println(s"  numUnchangedFiles: ${unchanged.size}")
               stdout.println(s"  filesToProcessCount: ${filesToProcess.size}")

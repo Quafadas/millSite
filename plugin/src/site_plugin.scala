@@ -54,7 +54,7 @@ trait SiteModule extends Module:
 
   def pathToImportMap: T[Option[PathRef]] = None
 
-  def scalaVersion = Versions.scalaVersion
+  def scalaVersion: Simple[String] = Task(???) // force the user to set this themselves.
 
   def mdocSiteVariables: Simple[Seq[(String, String)]] = Task(Seq("VERSION" -> latestVersion()))
 
