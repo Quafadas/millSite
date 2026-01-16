@@ -33,13 +33,13 @@ object plugin extends ScalaModule with PublishModule:
 
   override def artifactName = "millSite"
 
-  def mvnDeps = Task{
+  def mvnDeps = Task {
     super.mvnDeps() ++
-    Seq(
-      mvn"com.lihaoyi::mill-libs:$millVersion",
-      mvn"org.typelevel::laika-io:1.3.2",
-      mvn"io.github.quafadas::sjsls:0.12.14",
-    )
+      Seq(
+        mvn"com.lihaoyi::mill-libs:$millVersion",
+        mvn"org.typelevel::laika-io:1.3.2",
+        mvn"io.github.quafadas::sjsls:0.12.14"
+      )
   }
 
   def artifactSuffix = s"${platformSuffix()}_${scalaArtefactVersion()}"
@@ -66,8 +66,8 @@ object plugin extends ScalaModule with PublishModule:
       mvn"com.lihaoyi::mill-testkit::${millVersion}",
       mvn"com.lihaoyi::upickle::4.1.0"
     )
+  end unit
 end plugin
-
 
 object site extends io.github.quafadas.millSite.SiteModule:
   def latestVersion: T[String] = Task {

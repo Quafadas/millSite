@@ -1,4 +1,3 @@
-
 package io.github.quafadas.millSite
 
 import mill.*
@@ -19,7 +18,6 @@ import ClasspathHelp.*
 import mill.api.Task.Simple
 import mill.api.BuildCtx
 import java.net.URLClassLoader
-
 
 trait MdocModule extends ScalaModule:
 
@@ -55,7 +53,7 @@ trait MdocModule extends ScalaModule:
 
   override def compileClasspath = Task {
     Task.traverse(findAllTransitiveDeps.toSeq)(_.compileClasspath)().flatten
-    ++ super.compileClasspath()
+      ++ super.compileClasspath()
 
   }
 
@@ -76,7 +74,6 @@ trait MdocModule extends ScalaModule:
   def siteVariables: Task.Simple[Seq[(String, String)]] = Task {
     Seq.empty[(String, String)]
   }
-
 
   def mdocDep: T[Seq[Dep]] = Task(
     Seq(
@@ -103,26 +100,25 @@ trait MdocModule extends ScalaModule:
     mDocLibs().map(_.path) ++ jsPropFile
   }
 
-  /**
-   * Directory containing the mdoc documentation sources for this module.
-   *
-   * Defaults to moduleDir/docs and serves as the input root for mdoc processing
-   * (e.g., Markdown files, configuration, and related assets). Override to
-   * customize where your documentation lives within the module.
-   *
-   * @return Path to the docs directory under this module’s directory.
-   */
+  /** Directory containing the mdoc documentation sources for this module.
+    *
+    * Defaults to moduleDir/docs and serves as the input root for mdoc processing (e.g., Markdown files, configuration,
+    * and related assets). Override to customize where your documentation lives within the module.
+    *
+    * @return
+    *   Path to the docs directory under this module’s directory.
+    */
   def mdocDir = super.moduleDir / "docs"
 
-  /**
-   * Returns the directory that contains the project's mdoc documentation sources.
-   *
-   * The directory is exposed as a Mill source input so that changes to any files
-   * within it are tracked and invalidate downstream tasks. The returned PathRef
-   * points to the directory and enables incremental rebuilds when its contents change.
-   *
-   * @return a PathRef to the documentation source directory, tracked as a task input
-   */
+  /** Returns the directory that contains the project's mdoc documentation sources.
+    *
+    * The directory is exposed as a Mill source input so that changes to any files within it are tracked and invalidate
+    * downstream tasks. The returned PathRef points to the directory and enables incremental rebuilds when its contents
+    * change.
+    *
+    * @return
+    *   a PathRef to the documentation source directory, tracked as a task input
+    */
   def docDir: Simple[PathRef] = Task.Source(mdocDir)
 
   // def mdocFiles: Task[Seq[PathRef]] = Task {
@@ -147,38 +143,36 @@ trait MdocModule extends ScalaModule:
   //   defaultResolver().classpath(scalametaCommon())
   // }
 
-  /**
-   * Configures mdocs arguments. See;
-   *
-   * https://scalameta.org/mdoc/docs/installation.html#help
-   *
-   */
-  def mdocArgs: Task[Seq[String]] = Task{
+  /** Configures mdocs arguments. See;
+    *
+    * https://scalameta.org/mdoc/docs/installation.html#help
+    */
+  def mdocArgs: Task[Seq[String]] = Task {
     val cp = compileClasspath().map(_.path)
     val runCp = runClasspath().map(_.path)
     // val scalametaCommon = scalaMetaCommonLib().map(_.path)
     val siteVars = siteVariables().toSeq.flatMap { case (k, v) => Seq(s"--site.$k", v) }
 
-    val jsArgs = jsSiteModule.moduleDeps.isEmpty match {
+    val jsArgs = jsSiteModule.moduleDeps.isEmpty match
       case true  => Seq.empty[String]
       case false => Seq("--js-classpath", jsSiteModule.jsclasspath())
-    }
 
     // val toProcess = mdocFiles()
     val importMap =
       if jsSiteModule.scalaJSImportMap().isEmpty then None
-      else Some(
-      jsSiteModule.mdocJsImportMap().path.toIO.getAbsolutePath
-      )
+      else
+        Some(
+          jsSiteModule.mdocJsImportMap().path.toIO.getAbsolutePath
+        )
     val scalaCOpts = scalacOptions()
     Seq(
       "--in",
-      docDir().path.toString(),
+      docDir().path.toString()
     )
-    ++ Seq("--classpath", toArgument(runCp ++ cp))
-    ++ importMap.fold(Seq.empty[String])(i => Seq("--import-map-path", i))
-    ++ (if scalaCOpts.nonEmpty then Seq("--scalac-options", scalaCOpts.mkString(" ")) else Seq.empty[String])
-    ++ siteVars
+      ++ Seq("--classpath", toArgument(runCp ++ cp))
+      ++ importMap.fold(Seq.empty[String])(i => Seq("--import-map-path", i))
+      ++ (if scalaCOpts.nonEmpty then Seq("--scalac-options", scalaCOpts.mkString(" ")) else Seq.empty[String])
+      ++ siteVars
     // ++ jsArgs
   }
 
@@ -186,26 +180,26 @@ trait MdocModule extends ScalaModule:
     new MdocWorker(mdocClassPath(), forkArgs())
   }
 
-  /**
-   * Runs mdoc to generate processed documentation into this task's destination directory.
-   *
-   * Behavior:
-   * - Ensures sources are compiled and documentation inputs are up to date by invoking `compile()` and `docDir()`.
-   * - Builds CLI arguments from `mdocArgs()`, appending `--out` pointing to `Task.dest`.
-   * - Resolves the mdoc runtime classpath from `mDocLibs()` and invokes `mdoc.Main` in a forked JVM
-   *   with the configured JVM arguments (`forkArgs()`) and environment (`forkEnv()`).
-   *
-   * The resulting documentation is written under `Task.dest` and returned as a `PathRef`.
-   *
-   * Side effects:
-   * - Spawns a new JVM process to run mdoc.
-   * - Writes/overwrites files under this task’s destination directory.
-   *
-   * Failure conditions:
-   * - Fails if the mdoc process exits non‑zero or if required dependencies are unavailable.
-   *
-   * @return a `PathRef` pointing to the directory containing the generated documentation.
-   */
+  /** Runs mdoc to generate processed documentation into this task's destination directory.
+    *
+    * Behavior:
+    *   - Ensures sources are compiled and documentation inputs are up to date by invoking `compile()` and `docDir()`.
+    *   - Builds CLI arguments from `mdocArgs()`, appending `--out` pointing to `Task.dest`.
+    *   - Resolves the mdoc runtime classpath from `mDocLibs()` and invokes `mdoc.Main` in a forked JVM with the
+    *     configured JVM arguments (`forkArgs()`) and environment (`forkEnv()`).
+    *
+    * The resulting documentation is written under `Task.dest` and returned as a `PathRef`.
+    *
+    * Side effects:
+    *   - Spawns a new JVM process to run mdoc.
+    *   - Writes/overwrites files under this task’s destination directory.
+    *
+    * Failure conditions:
+    *   - Fails if the mdoc process exits non‑zero or if required dependencies are unavailable.
+    *
+    * @return
+    *   a `PathRef` pointing to the directory containing the generated documentation.
+    */
 
   def mdoc2: Task.Simple[PathRef] = Task {
     compile()
@@ -216,29 +210,32 @@ trait MdocModule extends ScalaModule:
     PathRef(Task.dest)
   }
 
-  private final class MdocWorker(classpath: Seq[os.Path], forkArgs: Seq[String]) extends AutoCloseable {
+  private final class MdocWorker(classpath: Seq[os.Path], forkArgs: Seq[String]) extends AutoCloseable:
     private var loader: URLClassLoader = null
     private def parseSystemProps: Seq[(String, String)] =
       forkArgs.collect {
         case arg if arg.startsWith("-D") =>
           val kv = arg.drop(2)
           kv.indexOf('=') match
-            case -1 => kv -> ""
+            case -1  => kv -> ""
             case idx => kv.take(idx) -> kv.drop(idx + 1)
+          end match
       }
 
     override def close(): Unit = Option(loader).foreach(_.close())
 
-    private def withSystemProps[T](body: => T): T = {
+    private def withSystemProps[T](body: => T): T =
       val props = parseSystemProps
       val originals = props.map { case (k, _) => k -> Option(System.getProperty(k)) }
       props.foreach { case (k, v) => System.setProperty(k, v) }
       try body
-      finally originals.foreach {
-        case (k, Some(v)) => System.setProperty(k, v)
-        case (k, None)    => System.clearProperty(k)
-      }
-    }
+      finally
+        originals.foreach {
+          case (k, Some(v)) => System.setProperty(k, v)
+          case (k, None)    => System.clearProperty(k)
+        }
+      end try
+    end withSystemProps
 
     def run(args: Seq[String]): Unit = this.synchronized {
       loader = Jvm.createClassLoader(classpath)
@@ -252,27 +249,32 @@ trait MdocModule extends ScalaModule:
               classOf[java.io.PrintStream],
               classOf[java.nio.file.Path]
             )
-            val exitCode = try {
-              process
-                .invoke(
-                  mainObj,
-                  args.toArray,
-                  /* silence normal mdoc stdout to keep tests clean */
-                  new java.io.PrintStream(java.io.OutputStream.nullOutputStream()),
-                  java.nio.file.Path.of(os.pwd.toString())
-                )
-                .asInstanceOf[Int]
-            } catch {
-              case ite: java.lang.reflect.InvocationTargetException =>
-                val cause = Option(ite.getCause).getOrElse(ite)
-                throw new RuntimeException(s"mdoc invocation failed: ${cause.getClass.getSimpleName}: ${cause.getMessage}", cause)
-            }
+            val exitCode =
+              try
+                process
+                  .invoke(
+                    mainObj,
+                    args.toArray,
+                    /* silence normal mdoc stdout to keep tests clean */
+                    new java.io.PrintStream(java.io.OutputStream.nullOutputStream()),
+                    java.nio.file.Path.of(os.pwd.toString())
+                  )
+                  .asInstanceOf[Int]
+              catch
+                case ite: java.lang.reflect.InvocationTargetException =>
+                  val cause = Option(ite.getCause).getOrElse(ite)
+                  throw new RuntimeException(
+                    s"mdoc invocation failed: ${cause.getClass.getSimpleName}: ${cause.getMessage}",
+                    cause
+                  )
 
             if exitCode != 0 then throw new RuntimeException(s"mdoc failed with exit code $exitCode")
+            end if
           }
         }
-      finally 
+      finally
         Option(loader).foreach(_.close())
+      end try
     }
-  }
+  end MdocWorker
 end MdocModule

@@ -1,8 +1,8 @@
 package io.github.quafadas.millSite
 
-import mill._
-import mill.scalalib._
-import mill.scalajslib._
+import mill.*
+import mill.scalalib.*
+import mill.scalajslib.*
 
 import mill.api.Result
 import mill.util.Jvm.createJar
@@ -14,7 +14,7 @@ import mill.scalalib.publish.PomSettings
 import mill.scalalib.publish.License
 import mill.scalalib.publish.VersionControl
 import os.SubPath
-import ClasspathHelp._
+import ClasspathHelp.*
 import mill.scalajslib.api.ESFeatures
 import mill.scalajslib.api.ESVersion
 import mill.scalajslib.api.ModuleKind
@@ -24,51 +24,27 @@ import upickle.default.*
 
 case class EsmMap(imports: Map[String, String]) derives ReadWriter
 
+trait SiteJSModule extends ScalaJSModule:
 
-val repos = "https://packages.schroders.com/artifactory/maven"
-
-trait SiteJSModule extends ScalaJSModule {
-
-  override def repositories: T[Seq[String]] = Task{
-    super.repositories() ++
-    Seq(
-      "https://repo1.maven.org/maven2"
-    )
-  }
-
-  def mdocVersion: Task[String] = Task { Versions.mdocVersion }
-  def domVersion: Task[String] = Task { Versions.domVersion }
+  def mdocVersion: Task[String] = Task(Versions.mdocVersion)
+  def domVersion: Task[String] = Task(Versions.domVersion)
   // def scalaJsCompilerVersion = "2.13.14"
-
 
   def mdocJsImportMap = Task {
     val defined = scalaJSImportMap()
-    val out = EsmMap(defined.collect { case ESModuleImportMapping.Prefix(prefix, replacement) => (prefix, replacement) }.toMap)
+    val out = EsmMap(defined.collect { case ESModuleImportMapping.Prefix(prefix, replacement) =>
+      (prefix, replacement)
+    }.toMap)
     val dest = Task.dest / "mdoc_js_import_map.json"
     os.write(dest, upickle.default.write(out))
     PathRef(dest)
   }
 
-/**
   override def mvnDeps = Task {
     super.mvnDeps() ++ Seq(
       mvn"org.scala-js::scalajs-dom::${domVersion()}"
-    ) ++ mandatoryMvnDeps()
-  }
-
-  override def mandatoryMvnDeps = Task {
-    super.mandatoryMvnDeps().map { dep =>
-      val module = dep.dep.module
-      val isScalaJsOrg = module.organization.value == "org.scala-js"
-      val isStdlib = module.name.value == "scalajs-library" || module.name.value == "scalajs-scalalib"
-
-      if (isScalaJsOrg && isStdlib) {
-        dep.copy(cross = dep.cross match {
-          case c: mill.api.CrossVersion.Constant => c.copy(platformed = true)
-          case other => other
-        })
-      } else dep
-    }
+      // mvn"org.scala-js:scalajs-library_2.13:${scalaJSVersion()}" shoudl be covered by mandatory ivyDeps
+    ) ++ super.mandatoryMvnDeps()
   }
 
   // // /** Does this do anything?
@@ -85,7 +61,7 @@ trait SiteJSModule extends ScalaJSModule {
     toArgument(runClasspath().map(_.path))
   }
 
-  def jsLinkerClassPath = Task( linkerLibs().map(_.path))
+  def jsLinkerClassPath = Task(linkerLibs().map(_.path))
 
   def mdocJsProperties = Task {
     val mdocPropsFile = Task.dest / "mdoc.properties"
@@ -111,14 +87,14 @@ trait SiteJSModule extends ScalaJSModule {
 
   protected def linkerDependency = Task {
     val sjs = scalaJSVersion()
-    artifactScalaVersion() match {
+    artifactScalaVersion() match
       case "3" =>
         Seq(
           mvn"org.scala-js:scalajs-linker_2.13:$sjs",
           mvn"org.scalameta:mdoc-js-worker_3:${mdocVersion()}"
         )
       case other => ???
-    }
+    end match
   }
 
   def linkerLibs = Task {
@@ -127,10 +103,9 @@ trait SiteJSModule extends ScalaJSModule {
 
   def mdocJSDependency = Task {
     val mdocV = mdocVersion()
-    val dep = artifactScalaVersion() match {
+    val dep = artifactScalaVersion() match
       case "3"   => Seq(mvn"org.scalameta:mdoc-js-worker_3:$mdocV")
       case other => ???
-    }
   }
 
   override def scalacPluginMvnDeps = super.scalacPluginMvnDeps() ++ Seq(
@@ -138,7 +113,7 @@ trait SiteJSModule extends ScalaJSModule {
   )
 
   def mdocDep = Task {
-    artifactScalaVersion() match {
+    artifactScalaVersion() match
       case "3" =>
         Seq(
           mvn"org.scalameta::mdoc-js:${mdocVersion()}",
@@ -151,7 +126,6 @@ trait SiteJSModule extends ScalaJSModule {
           mvn"org.scala-lang.modules::scala-xml:2.1.0"
         )
       case other => ???
-    }
 
   }
 
@@ -159,5 +133,5 @@ trait SiteJSModule extends ScalaJSModule {
     mdocDep().map(Lib.depToBoundDep(_, scalaVersion()))
   }
 
-  def mDocLibs = Task { Lib.resolveDependencies(repositories().map(MavenRepository(_)), mdocDepBound(), false) }
-}
+  def mDocLibs = Task(Lib.resolveDependencies(repositories().map(MavenRepository(_)), mdocDepBound(), false))
+end SiteJSModule

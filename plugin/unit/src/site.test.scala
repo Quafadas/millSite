@@ -7,17 +7,17 @@ import mill.util.TokenReaders.*
 import utest.*
 import mill.api.Task.Simple
 
-object SiteTests extends TestSuite {
+object SiteTests extends TestSuite:
   def tests: Tests = Tests {
     test("Basic site processes mdoc") {
-      object build extends TestRootModule with SiteModule {
+      object build extends TestRootModule with SiteModule:
 
         override def mdocSiteVariables: Simple[Seq[(String, String)]] = Seq("VERSION" -> "0.0.0")
 
         override def forkArgs: Simple[Seq[String]] = Seq("-Duser.name=test-user")
 
         lazy val millDiscover = Discover[this.type]
-      }
+      end build
 
       val resourceFolder = os.Path(sys.env("MILL_TEST_RESOURCE_DIR"))
 
@@ -39,10 +39,10 @@ object SiteTests extends TestSuite {
 
         val resultPath = result.value.path
         assert(
-            os.exists(resultPath / "index.html")
+          os.exists(resultPath / "index.html")
         )
 
       }
     }
   }
-}
+end SiteTests

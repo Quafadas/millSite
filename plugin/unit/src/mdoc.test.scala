@@ -7,16 +7,16 @@ import mill.util.TokenReaders.*
 import utest.*
 import mill.api.Task.Simple
 
-object MdocTests extends TestSuite {
+object MdocTests extends TestSuite:
   def tests: Tests = Tests {
     test("mdoc basic processes mdoc") {
-      object build extends TestRootModule with MdocModule {
+      object build extends TestRootModule with MdocModule:
         override def scalaVersion: Simple[String] = "3.8.0"
 
         override def siteVariables: Simple[Seq[(String, String)]] = Seq(("VERSION", "1.2.3"))
 
         lazy val millDiscover = Discover[this.type]
-      }
+      end build
 
       val resourceFolder = os.Path(sys.env("MILL_TEST_RESOURCE_DIR"))
 
@@ -25,11 +25,11 @@ object MdocTests extends TestSuite {
         println(result)
         val resultPath = result.value.path
         assert(
-            os.exists(resultPath / "hi.mdoc.md")
-          )
+          os.exists(resultPath / "hi.mdoc.md")
+        )
         assert(
-            os.exists(resultPath / "random" / "folder" / "nested.mdoc.md")
-          )
+          os.exists(resultPath / "random" / "folder" / "nested.mdoc.md")
+        )
         assert(
           os.read.lines(resultPath / "hi.mdoc.md").mkString("").contains("FooPackage.FooObj.fooMethod")
         )
@@ -42,4 +42,4 @@ object MdocTests extends TestSuite {
       }
     }
   }
-}
+end MdocTests

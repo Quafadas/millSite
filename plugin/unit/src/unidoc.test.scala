@@ -9,21 +9,18 @@ import mill.api.Task.Simple
 import mill.*
 import mill.scalalib.*
 
-object UnidocTests extends TestSuite {
+object UnidocTests extends TestSuite:
   def tests: Tests = Tests {
     test("unidoc included in site basic processes mdoc") {
 
-
-
-      object build extends TestRootModule with SiteModule {
-        lazy val common: ScalaModule = new ScalaModule {
+      object build extends TestRootModule with SiteModule:
+        lazy val common: ScalaModule = new ScalaModule:
           def scalaVersion: Simple[String] = "3.8.0"
-        }
 
         override def unidocDeps: Seq[JavaModule] = Seq(common)
 
         lazy val millDiscover = Discover[this.type]
-      }
+      end build
 
       val resourceFolder = os.Path(sys.env("MILL_TEST_RESOURCE_DIR"))
 
@@ -31,9 +28,7 @@ object UnidocTests extends TestSuite {
 
         val Right(api) = eval(build.common.compile)
 
-
         val Right(withApi) = eval(build.laika.includeApi)
-
 
         val Right(checkHelium) = eval(build.laika.helium)
         val Right(checkApi) = eval(build.laika.stageSite)
@@ -51,7 +46,6 @@ object UnidocTests extends TestSuite {
 
       //   val Right(result) = eval(build.siteGen)
 
-
       //   println(result)
       //   val resultPath = result.value.path
       //   println(resultPath)
@@ -59,4 +53,4 @@ object UnidocTests extends TestSuite {
       }
     }
   }
-}
+end UnidocTests
