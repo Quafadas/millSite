@@ -417,12 +417,12 @@ trait MdocModule extends ScalaModule:
             def stripFlags(flags: Set[String], arr: Seq[String]): Seq[String] =
               val buf = scala.collection.mutable.ArrayBuffer.empty[String]
               var i = 0
-              while (i < arr.length) do
-                if flags.contains(arr(i)) && i + 1 < arr.length then
-                  i += 2
+              while i < arr.length do
+                if flags.contains(arr(i)) && i + 1 < arr.length then i += 2
                 else
                   buf += arr(i)
                   i += 1
+              end while
               buf.toSeq
             end stripFlags
 
