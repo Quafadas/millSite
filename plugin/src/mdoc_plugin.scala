@@ -10,6 +10,7 @@ import mill.util.Jvm
 // import mill.scalalib.api.CompilationResult
 // import de.tobiasroeser.mill.vcs.version.VcsVersion
 import scala.util.Try
+import scala.util.boundary
 import mill.scalalib.publish.PomSettings
 import mill.scalalib.publish.License
 import mill.scalalib.publish.VersionControl
@@ -177,7 +178,15 @@ trait MdocModule extends ScalaModule:
   }
 
   private def mdocWorker = Task.Worker {
-    new MdocWorker(mdocClassPath(), forkArgs())
+    val argLogs = mdocEnableArgsLogging()
+    val perfLogs = printMetrics()
+
+    if argLogs then println("mdoc: enabled args logging")
+    end if
+    if perfLogs then println("mdoc: enabled metrics printing")
+    end if
+
+    new MdocWorker(mdocClassPath(), forkArgs(), argLogs, perfLogs)
   }
 
   /** Runs mdoc to generate processed documentation into this task's destination directory.
@@ -216,14 +225,30 @@ trait MdocModule extends ScalaModule:
     MdocWorkerStats.get()
   }
 
+  /** Expose the most recent run's timing metrics (nanoseconds) for diagnostics */
+  def printMetrics: Task[Boolean] = Task {
+    false
+  }
+
+  /** Enable printing of per-run mdoc arguments (noisy). Use sparingly. */
+  def mdocEnableArgsLogging: Task[Boolean] = Task {
+    false
+  }
+
   private object MdocWorkerStats:
     private val counter = new java.util.concurrent.atomic.AtomicInteger(0)
     def inc(): Int = counter.incrementAndGet()
     def get(): Int = counter.get()
   end MdocWorkerStats
 
-  private final class MdocWorker(classpath: Seq[os.Path], forkArgs: Seq[String]) extends AutoCloseable:
+  private final class MdocWorker(
+      classpath: Seq[os.Path],
+      forkArgs: Seq[String],
+      initArgLogging: Boolean,
+      initPrintMetrics: Boolean
+  ) extends AutoCloseable:
     // Lazily initialized classloader and cached reflection objects so repeated runs reuse expensive resources
+    // Initial flags are passed from Mill tasks so builds can opt into verbose logging or metrics printing
     private var loader: URLClassLoader = null
     private var mainObj: AnyRef = null
     private var processMethod: java.lang.reflect.Method = null
@@ -233,6 +258,17 @@ trait MdocModule extends ScalaModule:
     // in-memory cache: hash -> (relPath -> bytes)
     private val memoryCache =
       scala.collection.mutable.Map.empty[String, scala.collection.mutable.Map[String, Array[Byte]]]
+
+    // control printing of per-run arguments (noisy). Store last run args for on-demand inspection.
+    private var verboseArgsLogging = false
+    private var lastRunArgs: Seq[String] = Seq.empty
+
+    // initialize flags from constructor
+    setVerboseArgsLogging(initArgLogging)
+
+    def setVerboseArgsLogging(enabled: Boolean): Unit = this.synchronized {
+      verboseArgsLogging = enabled
+    }
 
     private def parseSystemProps: Seq[(String, String)] =
       forkArgs.collect {
@@ -264,6 +300,10 @@ trait MdocModule extends ScalaModule:
         )
       end if
     end ensureInitialized
+
+    // Warm up classloader and reflective handles at worker creation to avoid paying
+    // the startup penalty during the first publish run.
+    ensureInitialized()
 
     private def withSystemProps[T](body: => T): T =
       val props = parseSystemProps
@@ -305,130 +345,38 @@ trait MdocModule extends ScalaModule:
     end storeToMemCache
 
     def run(args: Seq[String]): Unit = this.synchronized {
+      // start overall timer for this run
+      val runStart = System.nanoTime()
+
+      // measure classloader initialization (ensureInitialized is idempotent)
+      val t0 = System.nanoTime()
       ensureInitialized()
+      val t1 = System.nanoTime()
+      val classloaderInitNanos = t1 - t0
+
+      // reset metrics for the next run (no persistent storage; metrics are local to each run)
+
+      // per-run accumulators
+      var restoreNanos = 0L
+      var mdocInvocationNanos = 0L
+      var storeNanos = 0L
+      var fallbackNanos = 0L
+
       withSystemProps {
-        mill.api.ClassLoader.withContextClassLoader(loader) {
-          // parse args for --in and --out
-          def getFlagValue(flag: String): Option[String] =
-            args.sliding(2).collectFirst { case Seq(`flag`, v) => v }
+        boundary {
+          mill.api.ClassLoader.withContextClassLoader(loader) {
+            // parse args for --in and --out
+            def getFlagValue(flag: String): Option[String] =
+              args.sliding(2).collectFirst { case Seq(`flag`, v) => v }
 
-          val inOpt = getFlagValue("--in")
-          val outOpt = getFlagValue("--out")
+            val inOpt = getFlagValue("--in")
+            val outOpt = getFlagValue("--out")
 
-          if inOpt.isEmpty || outOpt.isEmpty then
-            // fallback to default behavior
-            val exitCode =
-              try
-                MdocWorkerStats.inc()
-                processMethod
-                  .invoke(
-                    mainObj,
-                    args.toArray,
-                    stdout,
-                    java.nio.file.Path.of(os.pwd.toString())
-                  )
-                  .asInstanceOf[Int]
-              catch
-                case ite: java.lang.reflect.InvocationTargetException =>
-                  val cause = Option(ite.getCause).getOrElse(ite)
-                  throw new RuntimeException(
-                    s"mdoc invocation failed: ${cause.getClass.getSimpleName}: ${cause.getMessage}",
-                    cause
-                  )
-
-            if exitCode != 0 then throw new RuntimeException(s"mdoc failed with exit code $exitCode")
-            end if
-            return
-          end if
-
-          val inDir = os.Path(inOpt.get)
-          val outDir = os.Path(outOpt.get)
-
-          // gather input docs (md, mdoc.md)
-          val inputFiles = os
-            .walk(inDir)
-            .filter { f =>
-              val s = f.toString
-              (s.endsWith(".md") || s.endsWith(".mdoc.md")) && os.isFile(f)
-            }
-            .toSeq
-
-          // build config fingerprint (args excluding --in/--out flags and their values and the fork args)
-          def stripFlags(flags: Set[String], arr: Seq[String]): Seq[String] =
-            val buf = scala.collection.mutable.ArrayBuffer.empty[String]
-            var i = 0
-            while i < arr.length do
-              if flags.contains(arr(i)) && i + 1 < arr.length then i += 2
-              else
-                buf += arr(i)
-                i += 1
-            end while
-            buf.toSeq
-          end stripFlags
-
-          val baseArgs = stripFlags(Set("--in", "--out"), args)
-          val configBytes = (baseArgs.mkString(" ") + forkArgs.mkString(" ")).getBytes("UTF-8")
-          val configHash = sha1(configBytes)
-
-          // compute per-file hashes
-          val fileHashes: Map[String, String] = inputFiles.map { p =>
-            val rel = p.relativeTo(inDir).toString()
-            val content = os.read.bytes(p)
-            val h = sha1(content ++ configHash.getBytes("UTF-8"))
-            rel -> h
-          }.toMap
-
-          // build transient metadata from in-memory cache
-          val metadata: Map[String, String] = memoryCache.toSeq.flatMap { case (h, m) =>
-            m.keys.map(rel => rel -> h)
-          }.toMap
-
-          val (unchanged, changed) = fileHashes.partition { case (rel, h) =>
-            memoryCache.get(h).exists(_.contains(rel))
-          }
-
-          // ensure output dir exists
-          if !os.exists(outDir) then os.makeDir.all(outDir)
-          end if
-
-          // restore unchanged files from in-memory cache
-          unchanged.foreach { case (rel, h) => restoreFromMemCache(h, rel, outDir) }
-
-          if changed.isEmpty then
-            // nothing to run — outputs restored from in-memory cache
-            return
-          end if
-
-          // run mdoc only on changed files: build args without --in/--out and append paths
-          val filesToProcess = changed.keys.toSeq.map(p => joinPath(inDir, p).toString)
-          // include --in so mdoc has the input root available for resolving relative references
-          val runArgs = (baseArgs ++ Seq("--in", inDir.toString, "--out", outDir.toString) ++ filesToProcess).toArray
-
-          try
-            MdocWorkerStats.inc()
-            val exitCode =
-              processMethod
-                .invoke(
-                  mainObj,
-                  runArgs,
-                  stdout,
-                  java.nio.file.Path.of(os.pwd.toString())
-                )
-                .asInstanceOf[Int]
-
-            if exitCode != 0 then throw new RuntimeException(s"mdoc failed with exit code $exitCode")
-            end if
-
-            // store processed outputs into in-memory cache
-            changed.foreach { case (rel, h) =>
-              storeToMemCache(h, rel, outDir)
-            }
-          catch
-            case e: Throwable =>
-              // fallback to full run if per-file run fails (some mdoc versions don't support per-file)
-              stdout.println(s"mdoc per-file run failed (${e.getMessage}), falling back to full run")
+            if inOpt.isEmpty || outOpt.isEmpty then
+              // fallback to default behavior
               val exitCode =
                 try
+                  MdocWorkerStats.inc()
                   processMethod
                     .invoke(
                       mainObj,
@@ -447,13 +395,189 @@ trait MdocModule extends ScalaModule:
 
               if exitCode != 0 then throw new RuntimeException(s"mdoc failed with exit code $exitCode")
               end if
+              boundary.break()
+            end if
 
-              // re-scan outputs and update in-memory cache for all files
-              MdocWorkerStats.inc()
-              fileHashes.foreach { case (rel, h) =>
-                storeToMemCache(h, rel, outDir)
+            val inDir = os.Path(inOpt.get)
+            val outDir = os.Path(outOpt.get)
+
+            // gather input docs (md, mdoc.md) and time the scan+hash phase
+            val tScanStart = System.nanoTime()
+            val inputFiles = os
+              .walk(inDir)
+              .filter { f =>
+                val s = f.toString
+                (s.endsWith(".md") || s.endsWith(".mdoc.md")) && os.isFile(f)
               }
-          end try
+              .toSeq
+
+            // build config fingerprint (args excluding --in/--out flags and their values and the fork args)
+            def stripFlags(flags: Set[String], arr: Seq[String]): Seq[String] =
+              val buf = scala.collection.mutable.ArrayBuffer.empty[String]
+              var i = 0
+              while i < arr.length do
+                if flags.contains(arr(i)) && i + 1 < arr.length then i += 2
+                else
+                  buf += arr(i)
+                  i += 1
+              end while
+              buf.toSeq
+            end stripFlags
+
+            val baseArgs = stripFlags(Set("--in", "--out"), args)
+            val configBytes = (baseArgs.mkString(" ") + forkArgs.mkString(" ")).getBytes("UTF-8")
+            val configHash = sha1(configBytes)
+
+            // compute per-file hashes
+            val fileHashes: Map[String, String] = inputFiles.map { p =>
+              val rel = p.relativeTo(inDir).toString()
+              val content = os.read.bytes(p)
+              val h = sha1(content ++ configHash.getBytes("UTF-8"))
+              rel -> h
+            }.toMap
+            val tScanEnd = System.nanoTime()
+            val inputScanNanos = tScanEnd - tScanStart
+
+            // build transient metadata from in-memory cache
+            val metadata: Map[String, String] = memoryCache.toSeq.flatMap { case (h, m) =>
+              m.keys.map(rel => rel -> h)
+            }.toMap
+
+            val (unchanged, changed) = fileHashes.partition { case (rel, h) =>
+              memoryCache.get(h).exists(_.contains(rel))
+            }
+
+            // ensure output dir exists
+            if !os.exists(outDir) then os.makeDir.all(outDir)
+            end if
+
+            // restore unchanged files from in-memory cache (timed)
+            unchanged.foreach { case (rel, h) =>
+              val tRestoreStart = System.nanoTime()
+              restoreFromMemCache(h, rel, outDir)
+              restoreNanos += (System.nanoTime() - tRestoreStart)
+            }
+
+            if changed.isEmpty then
+              // nothing to run — outputs restored from in-memory cache
+              boundary.break()
+            end if
+
+            // run mdoc only on changed files: build per-file --in <file> --out <file> pairs and ensure parent dirs exist
+            val filesToProcess = changed.keys.toSeq
+
+            // ensure parent dirs for outputs exist to avoid mdoc errors
+            filesToProcess.foreach { rel =>
+              val outFile = joinPath(outDir, rel)
+              os.makeDir.all(outFile / os.up)
+            }
+
+            val pairArgs = filesToProcess.flatMap { rel =>
+              val inFile = joinPath(inDir, rel).toString
+              val outFile = joinPath(outDir, rel).toString
+              Seq("--in", inFile, "--out", outFile)
+            }
+
+            val runArgsSeq = baseArgs ++ pairArgs
+            // store last args for on-demand inspection; only print if verbose logging is enabled
+            lastRunArgs = runArgsSeq
+            if verboseArgsLogging then stdout.println(s"mdoc run args: ${runArgsSeq.mkString(" ")}")
+            end if
+            val runArgs = runArgsSeq.toArray
+
+            try
+              MdocWorkerStats.inc()
+              val tMdocStart = System.nanoTime()
+              val exitCode =
+                processMethod
+                  .invoke(
+                    mainObj,
+                    runArgs,
+                    stdout,
+                    java.nio.file.Path.of(os.pwd.toString())
+                  )
+                  .asInstanceOf[Int]
+              val tMdocEnd = System.nanoTime()
+              mdocInvocationNanos += (tMdocEnd - tMdocStart)
+
+              if exitCode != 0 then throw new RuntimeException(s"mdoc failed with exit code $exitCode")
+              end if
+
+              // store processed outputs into in-memory cache (timed)
+              changed.foreach { case (rel, h) =>
+                val tStoreStart = System.nanoTime()
+                storeToMemCache(h, rel, outDir)
+                storeNanos += (System.nanoTime() - tStoreStart)
+              }
+            catch
+              case e: Throwable =>
+                // fallback to full run if per-file run fails (some mdoc versions don't support per-file)
+                stdout.println(s"mdoc per-file run failed (${e.getMessage}), falling back to full run")
+                val tFallbackStart = System.nanoTime()
+                val exitCode =
+                  try
+                    processMethod
+                      .invoke(
+                        mainObj,
+                        args.toArray,
+                        stdout,
+                        java.nio.file.Path.of(os.pwd.toString())
+                      )
+                      .asInstanceOf[Int]
+                  catch
+                    case ite: java.lang.reflect.InvocationTargetException =>
+                      val cause = Option(ite.getCause).getOrElse(ite)
+                      throw new RuntimeException(
+                        s"mdoc invocation failed: ${cause.getClass.getSimpleName}: ${cause.getMessage}",
+                        cause
+                      )
+                val tFallbackEnd = System.nanoTime()
+                fallbackNanos += (tFallbackEnd - tFallbackStart)
+
+                if exitCode != 0 then throw new RuntimeException(s"mdoc failed with exit code $exitCode")
+                end if
+
+                // re-scan outputs and update in-memory cache for all files (timed)
+                MdocWorkerStats.inc()
+                fileHashes.foreach { case (rel, h) =>
+                  val tStoreStart = System.nanoTime()
+                  storeToMemCache(h, rel, outDir)
+                  storeNanos += (System.nanoTime() - tStoreStart)
+                }
+            end try
+
+            // compute run metrics (local variables)
+            val totalNanos = System.nanoTime() - runStart
+            // (classloaderInitNanos, inputScanNanos, restoreNanos, mdocInvocationNanos,
+            // storeNanos, fallbackNanos) are already local variables updated above
+            // counters: inputFiles.length, changed.size, unchanged.size, filesToProcess.size
+
+            // Pretty-print metrics to stdout for quick diagnostics (controlled by flag)
+            if initPrintMetrics then
+              def nsToMs(n: Long): Double = n.toDouble / 1e6
+              stdout.println("mdoc worker last-run metrics:")
+              stdout.println(f"  totalNanos: $totalNanos ns (${nsToMs(totalNanos)}%.3f ms)")
+              stdout.println(
+                f"  classloaderInitNanos: $classloaderInitNanos ns (${nsToMs(classloaderInitNanos)}%.3f ms)"
+              )
+              stdout.println(f"  inputScanNanos: $inputScanNanos ns (${nsToMs(inputScanNanos)}%.3f ms)")
+              stdout.println(f"  restoreNanos: $restoreNanos ns (${nsToMs(restoreNanos)}%.3f ms)")
+              stdout.println(f"  mdocInvocationNanos: $mdocInvocationNanos ns (${nsToMs(mdocInvocationNanos)}%.3f ms)")
+              stdout.println(f"  storeNanos: $storeNanos ns (${nsToMs(storeNanos)}%.3f ms)")
+              stdout.println(f"  fallbackNanos: $fallbackNanos ns (${nsToMs(fallbackNanos)}%.3f ms)")
+
+              // Print concise counters and small file list if helpful
+              stdout.println(s"  numInputFiles: ${inputFiles.length}")
+              stdout.println(s"  numChangedFiles: ${changed.size}")
+              stdout.println(s"  numUnchangedFiles: ${unchanged.size}")
+              stdout.println(s"  filesToProcessCount: ${filesToProcess.size}")
+              if filesToProcess.size <= 10 && filesToProcess.nonEmpty then
+                stdout.println("  filesToProcess:")
+                filesToProcess.foreach(f => stdout.println(s"    - $f"))
+              end if
+            end if
+
+          }
         }
       }
     }
