@@ -1,6 +1,6 @@
 # Configuration
 
-Is epically under-documented.
+Is epically under-documented. I made an AI vibe-doc the scaladoc, which you can find in the Unidoc of this site. Look for the icon top right.
 
 # Tasks
 
