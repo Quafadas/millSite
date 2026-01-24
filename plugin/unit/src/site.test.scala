@@ -11,7 +11,7 @@ object SiteTests extends TestSuite:
   def tests: Tests = Tests {
     test("Basic site processes mdoc") {
       object build extends TestRootModule with SiteModule:
-        override def scalaVersion: Simple[String] =Config.scalaVersion
+        override def scalaVersion: Simple[String] = Config.scalaVersion
         override def mdocSiteVariables: Simple[Seq[(String, String)]] = Seq("VERSION" -> "0.0.0")
 
         override def forkArgs: Simple[Seq[String]] = Seq("-Duser.name=test-user")

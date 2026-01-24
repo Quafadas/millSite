@@ -24,37 +24,32 @@ import upickle.default.*
 
 /** JSON representation of ESM import mappings for Mdoc JS processing.
   *
-  * @param imports Map from import prefix to replacement URL/path
+  * @param imports
+  *   Map from import prefix to replacement URL/path
   */
 case class EsmMap(imports: Map[String, String]) derives ReadWriter
 
 /** A Mill module trait providing Scala.js integration for Mdoc documentation.
   *
-  * This module enables interactive Scala.js code examples in documentation.
-  * When mixed into your build, it configures Mdoc to compile and link Scala.js
-  * code blocks, producing JavaScript that runs in the browser.
+  * This module enables interactive Scala.js code examples in documentation. When mixed into your build, it configures
+  * Mdoc to compile and link Scala.js code blocks, producing JavaScript that runs in the browser.
   *
   * ==Features==
-  *  - Compiles Scala.js code blocks in `.mdoc.md` files
-  *  - ES Module output for modern browser compatibility
-  *  - Import map support for external JavaScript dependencies
-  *  - Automatic scalajs-dom dependency inclusion
+  *   - Compiles Scala.js code blocks in `.mdoc.md` files
+  *   - ES Module output for modern browser compatibility
+  *   - Import map support for external JavaScript dependencies
+  *   - Automatic scalajs-dom dependency inclusion
   *
   * ==Usage==
   * Override `jsSiteModule` in your [[MdocModule]] to enable Scala.js support:
   *
-  * {{{n
-  * object docs extends MdocModule {
-  *   override val jsSiteModule = new SiteJSModule {
-  *     override def scalaVersion = "3.3.1"
-  *     override def scalaJSVersion = "1.16.0"
-  *     override def moduleDeps = Seq(myJsLibrary)
-  *   }
-  * }
-  * }}}
+  * {{{n object docs extends MdocModule { override val jsSiteModule = new SiteJSModule { override def scalaVersion =
+  * "3.3.1" override def scalaJSVersion = "1.16.0" override def moduleDeps = Seq(myJsLibrary) } } }}}
   *
-  * @see [[MdocModule]] for the parent documentation module
-  * @see [[https://scalameta.org/mdoc/docs/js.html Mdoc Scala.js documentation]]
+  * @see
+  *   [[MdocModule]] for the parent documentation module
+  * @see
+  *   [[https://scalameta.org/mdoc/docs/js.html Mdoc Scala.js documentation]]
   */
 trait SiteJSModule extends ScalaJSModule:
 
@@ -62,27 +57,28 @@ trait SiteJSModule extends ScalaJSModule:
     *
     * Defaults to [[Versions.mdocVersion]]. Override to use a different version.
     *
-    * @return the Mdoc version string
+    * @return
+    *   the Mdoc version string
     */
   def mdocVersion: Task[String] = Task(Versions.mdocVersion)
 
   /** The version of scalajs-dom library to include.
     *
-    * scalajs-dom provides typed facades for browser DOM APIs.
-    * Defaults to [[Versions.domVersion]].
+    * scalajs-dom provides typed facades for browser DOM APIs. Defaults to [[Versions.domVersion]].
     *
-    * @return the scalajs-dom version string
+    * @return
+    *   the scalajs-dom version string
     */
   def domVersion: Task[String] = Task(Versions.domVersion)
   // def scalaJsCompilerVersion = "2.13.14"
 
   /** Generates a JSON import map file for Mdoc Scala.js processing.
     *
-    * Converts the [[scalaJSImportMap]] configuration into a JSON file
-    * that Mdoc uses to resolve ES module imports. This enables using
-    * external JavaScript libraries via CDN or custom paths.
+    * Converts the [[scalaJSImportMap]] configuration into a JSON file that Mdoc uses to resolve ES module imports. This
+    * enables using external JavaScript libraries via CDN or custom paths.
     *
-    * @return PathRef to the generated `mdoc_js_import_map.json` file
+    * @return
+    *   PathRef to the generated `mdoc_js_import_map.json` file
     */
   def mdocJsImportMap = Task {
     val defined = scalaJSImportMap()
@@ -96,11 +92,11 @@ trait SiteJSModule extends ScalaJSModule:
 
   /** Maven dependencies for Scala.js documentation code.
     *
-    * Automatically includes scalajs-dom for browser API access.
-    * Override to add additional Scala.js libraries available in
-    * documentation code examples.
+    * Automatically includes scalajs-dom for browser API access. Override to add additional Scala.js libraries available
+    * in documentation code examples.
     *
-    * @return sequence of Maven dependencies
+    * @return
+    *   sequence of Maven dependencies
     */
   override def mvnDeps = Task {
     super.mvnDeps() ++ Seq(
@@ -119,7 +115,8 @@ trait SiteJSModule extends ScalaJSModule:
     *
     * Used by Mdoc to locate Scala.js libraries when compiling JS code blocks.
     *
-    * @return classpath string suitable for command-line arguments
+    * @return
+    *   classpath string suitable for command-line arguments
     */
   def jsclasspath = Task {
     toArgument(runClasspath().map(_.path))
@@ -127,24 +124,25 @@ trait SiteJSModule extends ScalaJSModule:
 
   /** The classpath for the Scala.js linker.
     *
-    * Contains the scalajs-linker and mdoc-js-worker JARs needed
-    * to link compiled Scala.js code into JavaScript.
+    * Contains the scalajs-linker and mdoc-js-worker JARs needed to link compiled Scala.js code into JavaScript.
     *
-    * @return sequence of paths to linker libraries
+    * @return
+    *   sequence of paths to linker libraries
     */
   def jsLinkerClassPath = Task(linkerLibs().map(_.path))
 
   /** Generates the `mdoc.properties` file for Scala.js configuration.
     *
-    * Creates a properties file containing all Scala.js-related settings
-    * that Mdoc needs to compile and link JS code blocks:
-    *  - `js-scalac-options` - Scala compiler options including `-scalajs`
-    *  - `js-linker-classpath` - Path to Scala.js linker libraries
-    *  - `js-classpath` - Classpath for JS compilation
-    *  - `js-module-kind` - Module format (ESModule by default)
-    *  - `import-map-path` - Path to the ESM import map JSON
+    * Creates a properties file containing all Scala.js-related settings that Mdoc needs to compile and link JS code
+    * blocks:
+    *   - `js-scalac-options` - Scala compiler options including `-scalajs`
+    *   - `js-linker-classpath` - Path to Scala.js linker libraries
+    *   - `js-classpath` - Classpath for JS compilation
+    *   - `js-module-kind` - Module format (ESModule by default)
+    *   - `import-map-path` - Path to the ESM import map JSON
     *
-    * @return PathRef to the directory containing `mdoc.properties`
+    * @return
+    *   PathRef to the directory containing `mdoc.properties`
     */
   def mdocJsProperties = Task {
     val mdocPropsFile = Task.dest / "mdoc.properties"
@@ -168,19 +166,21 @@ trait SiteJSModule extends ScalaJSModule:
 
   /** The JavaScript module format for output.
     *
-    * Defaults to ES Modules for modern browser compatibility.
-    * ES Modules support `import`/`export` syntax and work with import maps.
+    * Defaults to ES Modules for modern browser compatibility. ES Modules support `import`/`export` syntax and work with
+    * import maps.
     *
-    * @return the module kind (ESModule by default)
+    * @return
+    *   the module kind (ESModule by default)
     */
   override def moduleKind: Simple[ModuleKind] = ModuleKind.ESModule
 
   /** Maven dependencies for the Scala.js linker.
     *
-    * Resolves the scalajs-linker and mdoc-js-worker for the configured
-    * Scala.js version. Currently only supports Scala 3.
+    * Resolves the scalajs-linker and mdoc-js-worker for the configured Scala.js version. Currently only supports Scala
+    * 3.
     *
-    * @return sequence of linker dependencies
+    * @return
+    *   sequence of linker dependencies
     */
   protected def linkerDependency = Task {
     val sjs = scalaJSVersion()
@@ -196,7 +196,8 @@ trait SiteJSModule extends ScalaJSModule:
 
   /** Resolved classpath for Scala.js linker dependencies.
     *
-    * @return resolved linker library JARs
+    * @return
+    *   resolved linker library JARs
     */
   def linkerLibs = Task {
     defaultResolver().classpath(linkerDependency())
@@ -206,7 +207,8 @@ trait SiteJSModule extends ScalaJSModule:
     *
     * The worker handles JavaScript code block compilation within Mdoc.
     *
-    * @return sequence containing the mdoc-js-worker dependency
+    * @return
+    *   sequence containing the mdoc-js-worker dependency
     */
   def mdocJSDependency = Task {
     val mdocV = mdocVersion()
@@ -219,7 +221,8 @@ trait SiteJSModule extends ScalaJSModule:
     *
     * Adds the scalajs-compiler plugin to enable Scala.js output.
     *
-    * @return sequence of compiler plugin dependencies
+    * @return
+    *   sequence of compiler plugin dependencies
     */
   override def scalacPluginMvnDeps = super.scalacPluginMvnDeps() ++ Seq(
     mvn"org.scala-js:scalajs-compiler_2.13.18:${scalaJSVersion()}"
@@ -227,10 +230,11 @@ trait SiteJSModule extends ScalaJSModule:
 
   /** Maven dependencies for Mdoc with Scala.js support.
     *
-    * Includes mdoc, mdoc-js, and the Scala 3 compiler/library.
-    * Excludes bundled Scala compiler to use the version from [[scalaVersion]].
+    * Includes mdoc, mdoc-js, and the Scala 3 compiler/library. Excludes bundled Scala compiler to use the version from
+    * [[scalaVersion]].
     *
-    * @return sequence of Mdoc dependencies
+    * @return
+    *   sequence of Mdoc dependencies
     */
   def mdocDep = Task {
     artifactScalaVersion() match
@@ -253,7 +257,8 @@ trait SiteJSModule extends ScalaJSModule:
     *
     * Converts [[mdocDep]] to bound dependencies for resolution.
     *
-    * @return sequence of bound Mdoc dependencies
+    * @return
+    *   sequence of bound Mdoc dependencies
     */
   def mdocDepBound = Task {
     mdocDep().map(Lib.depToBoundDep(_, scalaVersion()))
@@ -263,7 +268,8 @@ trait SiteJSModule extends ScalaJSModule:
     *
     * Resolves all Mdoc dependencies including the Scala.js worker.
     *
-    * @return resolved Mdoc library JARs
+    * @return
+    *   resolved Mdoc library JARs
     */
   def mDocLibs = Task(Lib.resolveDependencies(repositories().map(MavenRepository(_)), mdocDepBound(), false))
 end SiteJSModule
