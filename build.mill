@@ -77,6 +77,8 @@ object site extends io.github.quafadas.millSite.SiteModule:
 
   override def unidocTitle = Task("Mill Site API Documentation")
 
+  override def repoLink: Simple[String] = "https://github.com/Quafadas/millSite"
+
   def unidocDeps: Seq[JavaModule] = Seq(plugin)
 
   // override def scalaDocOptions = Task {

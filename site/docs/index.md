@@ -12,14 +12,14 @@ Aims to provide
 Quickstart `build.mill` to publish a website, for a module `foo`, which extends `PublishModule`
 
 
-Current version is : `io.github.quafadas:millSite_mill1_3.8:`${version.latest}
+Current version is : `io.github.quafadas:millSite_mill1_3.8:@VERSION@`
 
 
 ```scala
 //| mill-version: 1.1.0-RC4
 //| mill-jvm-version: 21
 //| mvnDeps:
-//| - io.github.quafadas:millSite_mill1_3.8:version.latest
+//| - io.github.quafadas:millSite_mill1_3.8:@VERSION@
 
 import io.github.quafadas.millSite.SiteModule
 
