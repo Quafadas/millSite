@@ -1,7 +1,7 @@
 //| mill-version: 1.1.0-RC4
 //| mill-jvm-version: 21
 //| mvnDeps:
-//| - io.github.quafadas:millSite_mill1_3.7:0.0.54
+//| - io.github.quafadas:millSite_mill1_3.8:0.0.56
 
 import mill.util.BuildInfo.{millVersion, millBinPlatform}
 import mill.util.VcsVersion
@@ -26,7 +26,7 @@ import mill.util.VcsVersion
 object plugin extends ScalaModule with PublishModule:
   def platformSuffix = s"_mill$millBinPlatform"
 
-  def scalaVersion = "3.8.0"
+  def scalaVersion = "3.8.1"
 
   def scalaArtefactVersion: Task[String] =
     scalaVersion.map(_.split("\\.").take(2).mkString("."))
@@ -70,6 +70,7 @@ object plugin extends ScalaModule with PublishModule:
 end plugin
 
 object site extends io.github.quafadas.millSite.SiteModule:
+  override def scalaVersion = plugin.scalaVersion()
   def latestVersion: T[String] = Task {
     VcsVersion.vcsState().lastTag.getOrElse("0.0.0").replace("v", "")
   }

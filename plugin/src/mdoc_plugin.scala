@@ -20,16 +20,60 @@ import mill.api.Task.Simple
 import mill.api.BuildCtx
 import java.net.URLClassLoader
 
+/** A Mill module trait that provides integration with Mdoc for typesafe documentation.
+  *
+  * Mdoc processes Markdown files containing Scala code blocks, compiling and evaluating
+  * the code to ensure documentation examples are correct and up-to-date. Code blocks
+  * are executed and their output is inserted into the generated Markdown.
+  *
+  * ==Features==
+  *  - Typesafe documentation with compiled Scala code examples
+  *  - Scala.js support for interactive browser examples via [[SiteJSModule]]
+  *  - Incremental processing with in-memory caching for fast rebuilds
+  *  - Site variable substitution for dynamic content
+  *  - Integration with Mill's dependency resolution and classpath management
+  *
+  * ==Usage==
+  * Mix this trait into your Mill build module:
+  *
+  * {{{n
+  * object docs extends MdocModule {
+  *   override def scalaVersion = "3.3.1"
+  *   override def moduleDeps = Seq(myLibrary)
+  * }
+  * }}}
+  *
+  * ==File Naming Convention==
+  * Files ending in `.mdoc.md` are processed by Mdoc. Regular `.md` files are
+  * copied as-is to the output directory.
+  *
+  * @see [[SiteJSModule]] for Scala.js integration
+  * @see [[https://scalameta.org/mdoc/ Mdoc documentation]]
+  */
 trait MdocModule extends ScalaModule:
 
+  /** The Scala.js module for interactive code examples in the browser.
+    *
+    * By default, creates an empty [[SiteJSModule]] that inherits this module's
+    * Scala version. Override to provide custom Scala.js dependencies or
+    * configuration for interactive documentation examples.
+    *
+    * If `jsSiteModule.moduleDeps` is non-empty, Scala.js support is enabled
+    * and mdoc will process `js` fence modifiers.
+    */
   val jsSiteModule: SiteJSModule =
     new SiteJSModule:
       override def scalaVersion: Simple[String] = MdocModule.this.scalaVersion
       override def scalaJSVersion: Simple[String] = Task(Versions.scalaJsVersion)
 
-  /** Finds everything that is going to get published
+  /** Finds all transitive publish module dependencies.
     *
-    * @return
+    * Recursively traverses `moduleDeps` to find all modules that extend
+    * `PublishModule`. This is used to build the complete classpath for
+    * mdoc processing, ensuring all library code is available during
+    * documentation compilation.
+    *
+    * @return Set of all transitive JavaModule dependencies that are publishable
     */
   def findAllTransitiveDeps: Set[JavaModule] =
     def loop(
@@ -52,12 +96,27 @@ trait MdocModule extends ScalaModule:
   //   Task.traverse(findAllTransitiveDeps.toSeq)(_.docSources)().flatten
   // }
 
+  /** Compile classpath including all transitive publish module dependencies.
+    *
+    * Extends the default compile classpath to include classpaths from all
+    * modules found by [[findAllTransitiveDeps]], ensuring mdoc can compile
+    * code examples that reference any library code.
+    *
+    * @return combined classpath from this module and all transitive dependencies
+    */
   override def compileClasspath = Task {
     Task.traverse(findAllTransitiveDeps.toSeq)(_.compileClasspath)().flatten
       ++ super.compileClasspath()
 
   }
 
+  /** The version of Mdoc to use for documentation processing.
+    *
+    * Defaults to the version specified in [[Versions.mdocVersion]].
+    * Override to use a different Mdoc version.
+    *
+    * @return the Mdoc version string
+    */
   def scalaMdocVersion: T[String] = Task(Versions.mdocVersion)
 
   // def scalaMetaDeps = Task {
@@ -67,15 +126,42 @@ trait MdocModule extends ScalaModule:
   //   )
   // }
 
+  /** Maven dependencies required for Mdoc processing.
+    *
+    * Adds scalameta-common to the default dependencies, which is required
+    * for Mdoc's internal operation.
+    *
+    * @return sequence of Maven dependencies
+    */
   override def mvnDeps: T[Seq[Dep]] = super.mvnDeps() ++
     Seq(
       mvn"org.scalameta:common_2.13::${Versions.scalaMetaVersion}"
     )
 
+  /** Key-value pairs to substitute in documentation via Mdoc's site variables.
+    *
+    * These variables can be referenced in Markdown files using `@@VERSION@@` syntax.
+    * For example, adding `"VERSION" -> "1.0.0"` allows `@@VERSION@@` in docs
+    * to be replaced with `1.0.0`.
+    *
+    * @return sequence of (key, value) pairs for variable substitution
+    */
   def siteVariables: Task.Simple[Seq[(String, String)]] = Task {
     Seq.empty[(String, String)]
   }
 
+  /** Maven dependencies for the Mdoc runtime.
+    *
+    * Includes:
+    *  - mdoc and mdoc-js for documentation processing
+    *  - Scala 3 compiler and library (matched to [[scalaVersion]])
+    *  - tasty-core for TASTy file reading
+    *  - scala-xml for XML processing
+    *
+    * Excludes bundled Scala compiler/library to use the version from [[scalaVersion]].
+    *
+    * @return sequence of Mdoc runtime dependencies
+    */
   def mdocDep: T[Seq[Dep]] = Task(
     Seq(
       mvn"org.scalameta::mdoc-js:${scalaMdocVersion()}",
@@ -89,6 +175,13 @@ trait MdocModule extends ScalaModule:
     )
   )
 
+  /** Resolved classpath for Mdoc runtime dependencies.
+    *
+    * Resolves [[mdocDep]] using the default resolver to produce
+    * the actual JAR files needed to run Mdoc.
+    *
+    * @return resolved classpath for Mdoc execution
+    */
   def mDocLibs = Task {
     defaultResolver().classpath(mdocDep())
   }
@@ -144,9 +237,17 @@ trait MdocModule extends ScalaModule:
   //   defaultResolver().classpath(scalametaCommon())
   // }
 
-  /** Configures mdocs arguments. See;
+  /** Configures command-line arguments for Mdoc invocation.
     *
-    * https://scalameta.org/mdoc/docs/installation.html#help
+    * Builds the argument list including:
+    *  - `--in` pointing to [[docDir]]
+    *  - `--classpath` with compile and run classpaths
+    *  - `--import-map-path` for Scala.js import mapping (if configured)
+    *  - `--scalac-options` with [[scalacOptions]] (if non-empty)
+    *  - Site variables as `--site.KEY VALUE` pairs from [[siteVariables]]
+    *
+    * @see [[https://scalameta.org/mdoc/docs/installation.html#help Mdoc CLI documentation]]
+    * @return sequence of command-line arguments for Mdoc
     */
   def mdocArgs: Task[Seq[String]] = Task {
     val cp = compileClasspath().map(_.path)
@@ -218,19 +319,45 @@ trait MdocModule extends ScalaModule:
     PathRef(Task.dest)
   }
 
-  // Expose the in-process run count so tests can assert caching behavior
+  /** Returns the number of times the Mdoc worker has been invoked.
+    *
+    * Useful for testing and diagnostics to verify caching behavior.
+    * The counter increments each time Mdoc processes files.
+    *
+    * @return the cumulative run count for the Mdoc worker
+    */
   def mdocWorkerRunCount: Task[Int] = Task {
     // read the counter from the worker's static stats object
     // This is intentionally simple and for testing/diagnostics only
     MdocWorkerStats.get()
   }
 
-  /** Expose the most recent run's timing metrics (nanoseconds) for diagnostics */
+  /** Whether to print timing metrics after each Mdoc run.
+    *
+    * When enabled, prints detailed performance metrics including:
+    *  - Total run time
+    *  - Classloader initialization time
+    *  - Input scanning and hashing time
+    *  - Cache restore/store times
+    *  - Mdoc invocation time
+    *
+    * Defaults to `false`. Override to `true` for performance debugging.
+    *
+    * @return true to enable metrics printing
+    */
   def printMetrics: Task[Boolean] = Task {
     false
   }
 
-  /** Enable printing of per-run mdoc arguments (noisy). Use sparingly. */
+  /** Whether to print the Mdoc command-line arguments for each run.
+    *
+    * When enabled, prints the full argument list passed to Mdoc.
+    * This is verbose and primarily useful for debugging configuration issues.
+    *
+    * Defaults to `false`. Override to `true` when troubleshooting.
+    *
+    * @return true to enable argument logging
+    */
   def mdocEnableArgsLogging: Task[Boolean] = Task {
     false
   }

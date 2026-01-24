@@ -1,8 +1,6 @@
 # Big Redesign
 
-This was a deep rabbit hole.
-
-The original take on this was custom and brittle. It's now deisgned into 4 modules which deal with their own concerns.
+The original take on this was custom and brittle. It's now deisgned into 4 modules which deal with their own concerns and, hopefully, millier.
 
 ```mermaid
 flowchart LR
