@@ -146,7 +146,7 @@ trait LaikaModule extends Module:
     * @return
     *   the configured Helium theme builder
     */
-  def helium = Task.Worker {
+  def helium = Task.Anon {
     val repoLink =
       IconLink.external(repoUrl(), HeliumIcon.github)
     val apiLink = if includeApi() then Seq(IconLink.internal(Root / "api/index.html", HeliumIcon.api)) else Seq.empty
