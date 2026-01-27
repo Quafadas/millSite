@@ -1,14 +1,14 @@
 package io.github.quafadas.millSite
 
-import mill.testkit.{TestRootModule, UnitTester}
 import mill.api.Discover
-import mill.PathRef
-import mill.util.TokenReaders.*
-import utest.*
+import mill.api.Task
 import mill.api.Task.Simple
 import mill.scalajslib.ScalaJSModule
 import mill.scalajslib.api.ESModuleImportMapping
-import mill.api.Task
+import mill.testkit.TestRootModule
+import mill.testkit.UnitTester
+import mill.util.TokenReaders.*
+import utest.*
 
 object MdocJsTests extends TestSuite:
   def tests: Tests = Tests {
@@ -38,10 +38,9 @@ object MdocJsTests extends TestSuite:
 
       UnitTester(build, resourceFolder / "mdoc_js").scoped { eval =>
         // TODO unit test that the import map is actually used
-        val Right(importFlags) = eval(build.jvm.jsSiteModule.mdocJsImportMap).runtimeChecked
+        val Right(_) = eval(build.jvm.jsSiteModule.mdocJsImportMap).runtimeChecked
 
         val Right(result) = eval(build.jvm.mdoc2).runtimeChecked
-        println(result)
         val resultPath = result.value.path
         assert(
           os.exists(resultPath / "hi.md")

@@ -379,7 +379,6 @@ trait MdocModule extends ScalaModule:
 
     // control printing of per-run arguments (noisy). Store last run args for on-demand inspection.
     private var verboseArgsLogging = false
-    private var lastRunArgs: Seq[String] = Seq.empty
 
     // initialize flags from constructor
     setVerboseArgsLogging(initArgLogging)
@@ -615,8 +614,6 @@ trait MdocModule extends ScalaModule:
             }
 
             val runArgsSeq = baseArgs ++ pairArgs
-            // store last args for on-demand inspection; only print if verbose logging is enabled
-            lastRunArgs = runArgsSeq
             if verboseArgsLogging then stdout.println(s"mdoc run args: ${runArgsSeq.mkString(" ")}")
             end if
             val runArgs = runArgsSeq.toArray

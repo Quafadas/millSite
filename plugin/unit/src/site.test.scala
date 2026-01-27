@@ -1,11 +1,11 @@
 package io.github.quafadas.millSite
 
-import mill.testkit.{TestRootModule, UnitTester}
 import mill.api.Discover
-import mill.PathRef
+import mill.api.Task.Simple
+import mill.testkit.TestRootModule
+import mill.testkit.UnitTester
 import mill.util.TokenReaders.*
 import utest.*
-import mill.api.Task.Simple
 
 object SiteTests extends TestSuite:
   def tests: Tests = Tests {
@@ -23,7 +23,7 @@ object SiteTests extends TestSuite:
 
       UnitTester(build, resourceFolder / "simple_site").scoped { eval =>
 
-        val Right(resources) = eval(build.resources).runtimeChecked
+        val Right(_) = eval(build.resources).runtimeChecked
         val Right(resourcesMdoc) = eval(build.mdocModule.resources).runtimeChecked
         val Right(compileResourcesMdoc) = eval(build.mdocModule.compileResources).runtimeChecked
         val Right(siteVariablesMdoc) = eval(build.mdocModule.siteVariables).runtimeChecked

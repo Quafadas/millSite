@@ -1,21 +1,14 @@
 package io.github.quafadas.millSite
 
-import mill.testkit.{TestRootModule, UnitTester}
+import mainargs.Flag
 import mill.api.Discover
-import mill.PathRef
-import mill.util.TokenReaders.*
-import utest.*
+import mill.api.Task
 import mill.api.Task.Simple
 import mill.scalalib.UnidocModule
-import mill.util.JarManifest
-import coursier.core.Dependency
-import mill.javalib.Dep
-import mill.javalib.JvmWorkerModule
-import mill.api.ModuleRef
-import mill.api.daemon.internal.bsp.BspBuildTarget
-import mill.api.Task.Command
-import mill.api.Task
-import mainargs.Flag
+import mill.testkit.TestRootModule
+import mill.testkit.UnitTester
+import mill.util.TokenReaders.*
+import utest.*
 
 object LaikaTests extends TestSuite:
   def tests: Tests = Tests {
