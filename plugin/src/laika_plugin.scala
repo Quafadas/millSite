@@ -36,25 +36,22 @@
   */
 package io.github.quafadas.millSite
 
-import laika.ast.LengthUnit
-import laika.api.*
-import laika.format.*
-import laika.io.syntax.*
 import cats.effect.IO
-import laika.io.model.RenderedTreeRoot
 import cats.effect.unsafe.implicits.global
-import laika.config.LaikaKeys
-import laika.helium.config.*
+import laika.api.*
+import laika.ast.LengthUnit
 import laika.ast.Path.Root
-import laika.theme.ThemeProvider
-import laika.helium.Helium.*
+import laika.config.LaikaKeys
+import laika.config.SyntaxHighlighting
+import laika.format.*
 import laika.helium.Helium
 import laika.helium.config.*
+import laika.io.model.RenderedTreeRoot
+import laika.io.syntax.*
 import mill.api.*
-import mill.scalalib.*
-import mill.api.Task.Simple
 import mill.api.BuildCtx
-import laika.config.SyntaxHighlighting
+import mill.api.Task.Simple
+import mill.scalalib.*
 
 trait LaikaModule extends Module:
 

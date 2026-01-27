@@ -1,25 +1,15 @@
 package io.github.quafadas.millSite
 
-import mill.*
-import mill.scalalib.*
-import mill.scalajslib.*
-
-import mill.api.Result
-import mill.util.Jvm.createJar
-import mill.api.PathRef
-
 import coursier.maven.MavenRepository
-import scala.util.Try
-import mill.scalalib.publish.PomSettings
-import mill.scalalib.publish.License
-import mill.scalalib.publish.VersionControl
-import os.SubPath
-import ClasspathHelp.*
-import mill.scalajslib.api.ESFeatures
-import mill.scalajslib.api.ESVersion
-import mill.scalajslib.api.ModuleKind
+import io.github.quafadas.millSite.ClasspathHelp.*
+import mill.*
+import mill.api.PathRef
+import mill.api.Result
 import mill.api.Task.Simple
+import mill.scalajslib.*
 import mill.scalajslib.api.ESModuleImportMapping
+import mill.scalajslib.api.ModuleKind
+import mill.scalalib.*
 import upickle.default.*
 
 /** JSON representation of ESM import mappings for Mdoc JS processing.
@@ -190,7 +180,7 @@ trait SiteJSModule extends ScalaJSModule:
           mvn"org.scala-js:scalajs-linker_2.13:$sjs",
           mvn"org.scalameta:mdoc-js-worker_3:${mdocVersion()}"
         )
-      case other => ???
+      case _ => ???
     end match
   }
 
@@ -212,9 +202,9 @@ trait SiteJSModule extends ScalaJSModule:
     */
   def mdocJSDependency = Task {
     val mdocV = mdocVersion()
-    val dep = artifactScalaVersion() match
+    artifactScalaVersion() match
       case "3"   => Seq(mvn"org.scalameta:mdoc-js-worker_3:$mdocV")
-      case other => ???
+      case _ => ???
   }
 
   /** Scala compiler plugins required for Scala.js compilation.
@@ -249,7 +239,7 @@ trait SiteJSModule extends ScalaJSModule:
           mvn"org.scala-lang::tasty-core:${scalaVersion()}",
           mvn"org.scala-lang.modules::scala-xml:2.1.0"
         )
-      case other => ???
+      case _ => ???
 
   }
 

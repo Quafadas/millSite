@@ -1,32 +1,16 @@
 package io.github.quafadas.millSite
 
-import mill.*
-import mill.scalalib.*
-import os.Path
-import mill.api.Task.Simple
-import fs2.concurrent.Topic
 import cats.effect.IO
-// import mill.scalajslib.*
-// import coursier.maven.MavenRepository
-// import mill.api.Result
-// import mill.util.Jvm.createJar
-// import mill.define.PathRef
-// import mill.scalalib.api.CompilationResult
-// // import de.tobiasroeser.mill.vcs.version.VcsVersion
-// import scala.util.Try
-// import mill.scalalib.publish.PomSettings
-// import mill.scalalib.publish.License
-// import mill.scalalib.publish.VersionControl
-// import os.SubPath
-// import ClasspathHelp.*
 import cats.effect.unsafe.implicits.global
+import fs2.concurrent.Topic
 import io.github.quafadas.sjsls.LiveServerConfig
-import cats.effect.ExitCode
-import scala.util.{Try, Success, Failure}
-import scala.concurrent.Future
+import mill.*
 import mill.api.BuildCtx
-import mill.util.VcsVersion
+import mill.api.Task.Simple
 import mill.scalajslib.api.ESModuleImportMapping
+import mill.scalalib.*
+import mill.util.VcsVersion
+import os.Path
 
 implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
 
@@ -258,7 +242,7 @@ trait SiteModule extends Module:
     *   PathRef to the generated site directory
     */
   def siteGen = Task {
-    val mdocs = mdocModule.mdoc2()
+    val _ = mdocModule.mdoc2()
     val site = laika.generateSite()
     updateServer.publish1(println("publishing update")).unsafeRunSync()
     site
@@ -357,8 +341,7 @@ trait SiteModule extends Module:
     *   the RefreshServer worker instance
     */
   def serve = Task.Worker {
-    // Let's kill off anything that is a zombie on the port we want to use
-    val p = port()
+
     BuildCtx.withFilesystemCheckerDisabled {
       new RefreshServer(lcs())
     }

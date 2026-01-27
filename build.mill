@@ -2,6 +2,7 @@
 //| mill-jvm-version: 21
 //| mvnDeps:
 //| - io.github.quafadas:millSite_mill1_3.8:0.0.56
+//| - com.goyeau::mill-scalafix::0.6.0
 
 import mill.util.BuildInfo.{millVersion, millBinPlatform}
 import mill.util.VcsVersion
@@ -20,11 +21,16 @@ import com.sun.net.httpserver.SimpleFileServer
 import com.sun.net.httpserver.SimpleFileServer.OutputLevel
 import java.net.InetSocketAddress
 import mill.util.VcsVersion
+import com.goyeau.mill.scalafix.ScalafixModule
 
 // mill mill.bsp.BSP/install
 // mill __.compiledClassesAndSemanticDbFiles
-object plugin extends ScalaModule with PublishModule:
+object plugin extends ScalaModule with PublishModule with ScalafixModule:
   def platformSuffix = s"_mill$millBinPlatform"
+
+  override def scalacOptions: Simple[Seq[String]] = super.scalacOptions() ++ Seq(
+    "-Wunused:all"
+  )
 
   def scalaVersion = "3.8.1"
 

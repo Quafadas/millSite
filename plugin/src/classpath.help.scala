@@ -1,7 +1,5 @@
 package io.github.quafadas.millSite
 
-import mill.*
-import mill.scalalib.*
 
 private object ClasspathHelp:
   val separator: Char = java.io.File.pathSeparatorChar

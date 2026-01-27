@@ -1,24 +1,15 @@
 package io.github.quafadas.millSite
 
-import mill.*
-import mill.scalalib.*
-import mill.scalajslib.*
-import coursier.maven.MavenRepository
-import mill.api.Result
-import mill.util.Jvm
-
-// import mill.scalalib.api.CompilationResult
-// import de.tobiasroeser.mill.vcs.version.VcsVersion
-import scala.util.Try
-import scala.util.boundary
-import mill.scalalib.publish.PomSettings
-import mill.scalalib.publish.License
-import mill.scalalib.publish.VersionControl
-import os.SubPath
-import ClasspathHelp.*
-import mill.api.Task.Simple
-import mill.api.BuildCtx
 import java.net.URLClassLoader
+
+import scala.util.boundary
+
+import io.github.quafadas.millSite.ClasspathHelp.*
+import mill.*
+import mill.api.Result
+import mill.api.Task.Simple
+import mill.scalalib.*
+import mill.util.Jvm
 
 /** A Mill module trait that provides integration with Mdoc for typesafe documentation.
   *
@@ -252,7 +243,7 @@ trait MdocModule extends ScalaModule:
     // val scalametaCommon = scalaMetaCommonLib().map(_.path)
     val siteVars = siteVariables().toSeq.flatMap { case (k, v) => Seq(s"--site.$k", v) }
 
-    val jsArgs = jsSiteModule.moduleDeps.isEmpty match
+    jsSiteModule.moduleDeps.isEmpty match
       case true  => Seq.empty[String]
       case false => Seq("--js-classpath", jsSiteModule.jsclasspath())
 
@@ -535,7 +526,7 @@ trait MdocModule extends ScalaModule:
               .filter(os.isFile(_))
               .toSeq
 
-            val inputFiles = allInputFiles.filter { f =>
+            allInputFiles.filter { f =>
               val s = f.toString
               s.endsWith(".md") || s.endsWith(".mdoc.md")
             }
@@ -568,7 +559,7 @@ trait MdocModule extends ScalaModule:
             val inputScanNanos = tScanEnd - tScanStart
 
             // build transient metadata from in-memory cache
-            val metadata: Map[String, String] = memoryCache.toSeq.flatMap { case (h, m) =>
+            memoryCache.toSeq.flatMap { case (h, m) =>
               m.keys.map(rel => rel -> h)
             }.toMap
 
