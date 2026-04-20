@@ -11,3 +11,5 @@ package-lock.json
 hs_err_pid*
 .bsp/mill-bsp.json
 .bsp/*
+scripts/cellar
+.playwright-cli
