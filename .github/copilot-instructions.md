@@ -22,6 +22,10 @@ This plugin combines several documentation tools into a cohesive workflow:
 | `plugin/src/quickchange.scala` | File watching utilities for live-reload |
 | `plugin/src/classpath.help.scala` | Classpath resolution helpers |
 
+Use the `scalex` skill to find out about internal methods and classes in these files.
+
+Use the `cellar` skill to find out about external dependancies and their APIs.
+
 ## Commands
 
 ```bash

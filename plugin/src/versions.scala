@@ -6,4 +6,5 @@ private object Versions:
   val scalaVersion = "3.8.0"
   val scalaJsVersion = "1.20.2"
   val scalaMetaVersion = "4.14.2"
+  val protosearchVersion = "0.0-7f79720-SNAPSHOT"
 end Versions
