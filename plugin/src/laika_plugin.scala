@@ -51,8 +51,9 @@ import mill.api.*
 import mill.api.BuildCtx
 import mill.api.Task.Simple
 import mill.scalalib.*
-import pink.cozydev.protosearch.analysis.IndexFormat
-import pink.cozydev.protosearch.ui.SearchUI
+import laika.io.model.RenderedTreeRoot
+// import pink.cozydev.protosearch.analysis.IndexFormat
+// import pink.cozydev.protosearch.ui.SearchUI
 
 trait LaikaModule extends Module:
 
@@ -90,7 +91,7 @@ trait LaikaModule extends Module:
     *
     * Defaults to `true` for seamless search capabilities. Set to `false` to skip search index generation and use the standard Helium theme without the search widget.
     */
-  def enableSearch: Simple[Boolean] = Task(true)
+  def enableSearch: Simple[Boolean] = Task(false)
 
   /** The source directory containing Markdown documentation files.
     *
@@ -227,83 +228,39 @@ if ("PageRefresh" in msg) location.reload();
   def generateSite =
     Task {
       BuildCtx.withFilesystemCheckerDisabled {
-        val dest = Task.dest
 
-        if enableSearch() then
-          // Helium sets `header { position: fixed }` globally for its nav bar.
-          // The protosearch docs.js renderer wraps each result title in a <header> element,
-          // which inherits that fixed positioning and escapes to the top-left of the page.
-          // We override it here so result headers render in-flow inside their articles.
-          val heliumWithFix = SearchUI
-            .searchNavBar(helium())
-            .site
-            .inlineCSS(".ps-result header { position: static; }")
-          val heliumTheme = heliumWithFix.build.extendWith(SearchUI.helium)
+        val heliumB = helium().build
 
-          val baseParser = MarkupParser.of(Markdown)
-          val parserWithConfig = configValues().foldLeft(baseParser)((p, kv) => p.withConfigValue(kv._1, kv._2))
-          val parserResource = parserWithConfig
-            .using(Markdown.GitHubFlavor, SyntaxHighlighting)
-            .withRawContent
-            .parallel[IO]
-            .withTheme(heliumTheme)
-            .build
-          val htmlResource = Renderer.of(HTML).parallel[IO].withTheme(heliumTheme).build
-          val indexResource = Renderer.of(IndexFormat).parallel[IO].build
+        val transformer = Transformer
+          .from(Markdown)
+          .to(HTML)
 
-          os.makeDir.all(dest / "search")
+        val transformerWithValues =
+          configValues()
+            .foldLeft(transformer)((t, kv) => t.withConfigValue(kv._1, kv._2))
 
-          (for
-            parser <- parserResource
-            html <- htmlResource
-            idx <- indexResource
-          yield (parser, html, idx))
-            .use { (parser, html, idx) =>
-              parser
-                .fromDirectory(stageSite().path.toString())
-                .parse
-                .flatMap { tree =>
-                  html
-                    .from(tree)
-                    .toDirectory(dest.toString())
-                    .render
-                    .flatMap { _ =>
-                      idx
-                        .from(tree)
-                        .toFile((dest / "search" / "searchIndex.idx").toString())
-                        .render
-                    }
-                }
-            }
-            .unsafeRunSync()
-        else
-          val heliumB = helium().build
+        val built = transformerWithValues
+          .using(Markdown.GitHubFlavor, SyntaxHighlighting)
+          .withRawContent
+          .parallel[IO]
+          .withTheme(heliumB)
+          .build
 
-          val transformer = Transformer
-            .from(Markdown)
-            .to(HTML)
+        val res: IO[RenderedTreeRoot[IO]] = built.use { t =>
+          t.fromDirectory(stageSite().path.toString())
+            .toDirectory(Task.dest.toString())
+            .transform
+        }
+        res.unsafeRunSync()
 
-          val transformerWithValues =
-            configValues()
-              .foldLeft(transformer)((t, kv) => t.withConfigValue(kv._1, kv._2))
+        // if(includeApi()) {
+        //   val apiSite = unidocs.unidocSite()
+        //   os.copy(apiSite.path, Task.dest / "api", mergeFolders = true)
+        // } else {
+        //   ()
+        // }
 
-          val built = transformerWithValues
-            .using(Markdown.GitHubFlavor, SyntaxHighlighting)
-            .withRawContent
-            .parallel[IO]
-            .withTheme(heliumB)
-            .build
-
-          built
-            .use { t =>
-              t.fromDirectory(stageSite().path.toString())
-                .toDirectory(dest.toString())
-                .transform
-            }
-            .unsafeRunSync()
-        end if
-
-        PathRef(dest)
+        PathRef(Task.dest)
       }
     }
 end LaikaModule
