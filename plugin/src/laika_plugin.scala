@@ -52,8 +52,6 @@ import mill.api.BuildCtx
 import mill.api.Task.Simple
 import mill.scalalib.*
 import laika.io.model.RenderedTreeRoot
-// import pink.cozydev.protosearch.analysis.IndexFormat
-// import pink.cozydev.protosearch.ui.SearchUI
 
 trait LaikaModule extends Module:
 
@@ -81,17 +79,6 @@ trait LaikaModule extends Module:
     *   true if API documentation should be generated and included
     */
   def includeApi: Simple[Boolean] = Task(laikaUnidocDeps.nonEmpty)
-
-  /** Whether to generate a Protosearch full-text search index alongside the HTML site.
-    *
-    * When `true`, the site generation pipeline is split into separate parse and render phases so
-    * that both HTML and the binary search index (`search/searchIndex.idx`) are produced from a
-    * single document-tree parse. The Helium theme is also extended with [[SearchUI.standalone]]
-    * which injects a ready-made search widget into the navigation bar.
-    *
-    * Defaults to `true` for seamless search capabilities. Set to `false` to skip search index generation and use the standard Helium theme without the search widget.
-    */
-  def enableSearch: Simple[Boolean] = Task(false)
 
   /** The source directory containing Markdown documentation files.
     *
