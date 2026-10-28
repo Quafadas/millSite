@@ -10,6 +10,7 @@
   *   - Syntax highlighting for code blocks
   *   - Configurable Helium theme with top navigation bar
   *   - Optional API documentation integration via [[UnidocModule]]
+  *   - Jupyter notebooks (`.ipynb`) rendered as pages, from their stored outputs
   *   - Server-Sent Events (SSE) based live reload support
   *
   * ==Usage==
@@ -36,11 +37,17 @@
   */
 package io.github.quafadas.millSite
 
+import cats.data.NonEmptySet
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
+import cats.syntax.all.*
 import laika.api.*
+import laika.api.bundle.BlockDirectives
+import laika.api.bundle.DirectiveRegistry
+import laika.ast.BlockSequence
 import laika.ast.LengthUnit
 import laika.ast.Path.Root
+import laika.ast.RawContent
 import laika.config.LaikaKeys
 import laika.config.SyntaxHighlighting
 import laika.format.*
@@ -118,6 +125,25 @@ trait LaikaModule extends Module:
     */
   def latestVersion: Simple[String] = Task("0.0.0")
 
+  /** Whether to render Jupyter notebooks (`.ipynb`) found in the docs as site pages.
+    *
+    * Each notebook becomes a page built from the outputs already stored in it; nothing is executed. Defaults to `true`.
+    * When `false`, notebooks are copied to the site as plain files.
+    *
+    * @return
+    *   true to render notebooks
+    * @see
+    *   [[NotebookConverter]] for the conversion rules
+    */
+  def renderNotebooks: Simple[Boolean] = Task(true)
+
+  /** Options controlling how notebooks are rendered, when [[renderNotebooks]] is enabled.
+    *
+    * @return
+    *   the notebook rendering options
+    */
+  def notebookOptions: Simple[NotebookOptions] = Task(NotebookOptions())
+
   /** Configuration values to inject into Laika templates.
     *
     * These key-value pairs are available in Laika's substitution references. By default includes:
@@ -140,6 +166,7 @@ trait LaikaModule extends Module:
     *   - Top navigation bar with home, API docs (if enabled), and GitHub links
     *   - Content layout with 85vw content width and 15vw navigation
     *   - Inline JavaScript for Server-Sent Events live reload support
+    *   - Inline CSS for rendered notebook outputs
     *
     * Override this to customize the theme appearance.
     *
@@ -173,6 +200,8 @@ if ("PageRefresh" in msg) location.reload();
 });
 """
       )
+      .site
+      .inlineCSS(NotebookConverter.css)
 
   }
 
@@ -180,7 +209,8 @@ if ("PageRefresh" in msg) location.reload();
     *
     * This task:
     *   1. Copies the contents of [[inputDir]] to the destination
-    *   2. If [[includeApi]] is true, copies the generated API documentation to `/api/`
+    *   2. If [[renderNotebooks]] is true, converts each `.ipynb` to a Markdown page (see [[NotebookConverter]])
+    *   3. If [[includeApi]] is true, copies the generated API documentation to `/api/`
     *
     * The staged site is ready for Laika transformation.
     *
@@ -188,8 +218,13 @@ if ("PageRefresh" in msg) location.reload();
     *   PathRef to the staged site directory
     */
   def stageSite = Task {
+    val nbOptions = Option.when(renderNotebooks())(notebookOptions())
     BuildCtx.withFilesystemCheckerDisabled {
       os.copy(inputDir().path, Task.dest, mergeFolders = true)
+      nbOptions.foreach { opts =>
+        try NotebookConverter.convertTree(Task.dest, opts).foreach(Task.log.warn(_))
+        catch case e: NotebookConverter.NotebookException => Task.fail(e.getMessage)
+      }
       if includeApi() then
         val apiSite = unidocs.unidocSite()
         os.copy(apiSite.path, Task.dest / "api", mergeFolders = true)
@@ -227,7 +262,7 @@ if ("PageRefresh" in msg) location.reload();
             .foldLeft(transformer)((t, kv) => t.withConfigValue(kv._1, kv._2))
 
         val built = transformerWithValues
-          .using(Markdown.GitHubFlavor, SyntaxHighlighting)
+          .using(Markdown.GitHubFlavor, SyntaxHighlighting, NotebookDirectives)
           .withRawContent
           .parallel[IO]
           .withTheme(heliumB)
@@ -251,3 +286,26 @@ if ("PageRefresh" in msg) location.reload();
       }
     }
 end LaikaModule
+
+/** Laika directives used by pages converted from notebooks.
+  *
+  * `@:nbDetails(summary) ... @:@` wraps its body in a collapsed `<details>` element. Unlike raw HTML, the body is still
+  * parsed as Markdown, so code inside keeps its syntax highlighting.
+  */
+object NotebookDirectives extends DirectiveRegistry:
+  val spanDirectives = Seq.empty
+  val templateDirectives = Seq.empty
+  val linkDirectives = Seq.empty
+
+  val blockDirectives = Seq(
+    BlockDirectives.create("nbDetails") {
+      import BlockDirectives.dsl.*
+      (positionalAttributes.as[String].widen, parsedBody).mapN { (summary, body) =>
+        val label = summary.mkString(" ").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+        val open = RawContent(NonEmptySet.one("html"), s"""<details class="nb-hidden"><summary>$label</summary>""")
+        val close = RawContent(NonEmptySet.one("html"), "</details>")
+        BlockSequence((open +: body) :+ close)
+      }
+    }
+  )
+end NotebookDirectives

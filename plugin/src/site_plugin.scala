@@ -157,6 +157,26 @@ trait SiteModule extends Module:
     */
   def mdocSiteVariables: Simple[Seq[(String, String)]] = Task(Seq("VERSION" -> latestVersion()))
 
+  /** Whether to render Jupyter notebooks (`.ipynb`) in the docs as site pages.
+    *
+    * Notebooks are rendered from the outputs already stored in them; nothing is executed. Defaults to `true`.
+    *
+    * @return
+    *   true to render notebooks
+    * @see
+    *   [[LaikaModule.renderNotebooks]]
+    */
+  def renderNotebooks: Simple[Boolean] = Task(true)
+
+  /** Options controlling how notebooks are rendered, e.g. whether to keep the `.ipynb` downloadable.
+    *
+    * @return
+    *   the notebook rendering options
+    * @see
+    *   [[NotebookOptions]]
+    */
+  def notebookOptions: Simple[NotebookOptions] = Task(NotebookOptions())
+
   /** ES module import mappings for Scala.js.
     *
     * Configures how ES module imports are resolved when using Scala.js code blocks. Useful for mapping Scala.js facade
@@ -206,6 +226,7 @@ trait SiteModule extends Module:
     *   - Includes API docs from [[unidocDeps]] via nested [[UnidocModule]]
     *   - Uses [[repoLink]] for GitHub navigation icon
     *   - Applies [[latestVersion]] for template substitution
+    *   - Renders notebooks according to [[renderNotebooks]] and [[notebookOptions]]
     */
   val laika = new LaikaModule:
     override val unidocs = new UnidocModule:
@@ -229,6 +250,10 @@ trait SiteModule extends Module:
     override def repoUrl: Simple[String] = repoLink()
 
     override def latestVersion: Simple[String] = SiteModule.this.latestVersion()
+
+    override def renderNotebooks: Simple[Boolean] = SiteModule.this.renderNotebooks()
+
+    override def notebookOptions: Simple[NotebookOptions] = SiteModule.this.notebookOptions()
 
   /** Generates the complete documentation site.
     *

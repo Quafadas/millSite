@@ -42,6 +42,10 @@ object SiteTests extends TestSuite:
           os.exists(resultPath / "index.html")
         )
 
+        // notebooks pass through mdoc untouched, then render as pages
+        assert(os.read(resultPath / "notebook.html").contains("fromNotebook: Int = 1"))
+        assert(os.exists(resultPath / "notebook.ipynb"))
+
       }
     }
   }
