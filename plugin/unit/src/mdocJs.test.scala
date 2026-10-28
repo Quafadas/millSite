@@ -14,7 +14,7 @@ object MdocJsTests extends TestSuite:
   def tests: Tests = Tests {
     test("mdoc basic processes mdoc") {
 
-      inline val scalaJsVersionS = "1.20.2"
+      inline val scalaJsVersionS = "1.22.0"
 
       object build extends TestRootModule:
         val jvm = new MdocModule:
