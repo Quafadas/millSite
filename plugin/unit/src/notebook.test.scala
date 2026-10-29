@@ -178,6 +178,11 @@ object NotebookConverterTests extends TestSuite:
       assert(md.contains("<details class=\"nb-hidden\"><summary>Show code</summary><pre><code class=\"scala\">"))
     }
 
+    test("stripAnsi removes colour and hyperlink sequences") {
+      val s = "\u001b[0;31mred\u001b[0m \u001b]8;;https://example.com\u0007link\u001b]8;;\u0007"
+      assert(NotebookConverter.stripAnsi(s) == "red link")
+    }
+
     test("vega-lite outputs are drawn with vega-embed, loaded once at the top of the page") {
       val spec = ujson.Obj("mark" -> "bar", "title" -> "</script><b>&</b>")
       val chart = displayData("application/vnd.vegalite.v5+json" -> spec, "text/plain" -> "VEGA_FALLBACK")
@@ -229,9 +234,12 @@ object NotebookConverterTests extends TestSuite:
       assert(!md.contains("<script"))
     }
 
-    test("stripAnsi removes colour and hyperlink sequences") {
-      val s = "\u001b[0;31mred\u001b[0m \u001b]8;;https://example.com\u0007link\u001b]8;;\u0007"
-      assert(NotebookConverter.stripAnsi(s) == "red link")
+    test("javascript outputs run as inline scripts, ahead of html") {
+      val js = "document.getElementById(\"target\").textContent = \"</SCRIPT> ok\";"
+      val out = displayData("application/javascript" -> js, "text/html" -> "<p>HTML_FALLBACK</p>")
+      val md = convert(notebook(codeCell("draw()", out))).markdown
+      assert(md.contains("<script>\ndocument.getElementById(\"target\").textContent = \"<\\/SCRIPT> ok\";\n</script>"))
+      assert(!md.contains("HTML_FALLBACK"))
     }
   }
 end NotebookConverterTests
@@ -278,6 +286,8 @@ object NotebookSiteTests extends TestSuite:
         assert(html.contains("<div id=\"nb-vis-11-0\"></div>"))
         assert(html.contains("<script>vegaEmbed(\"#nb-vis-11-0\""))
         assert(html.contains("Plotly.newPlot(\"nb-vis-12-0\""))
+        assert(html.contains("<div id=\"nb-js-target\"></div>"))
+        assert(html.contains("document.getElementById(\"nb-js-target\").textContent = `JS_RAN ${1 + 1}`;"))
         assert(!html.contains("</script><b>not markup</b>"))
         assert(!html.contains("VEGA_FALLBACK"))
         assert(!html.contains("require(['plotly']"))

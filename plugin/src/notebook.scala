@@ -141,12 +141,16 @@ object NotebookConverter:
 
   private val PlotlyType = "application/vnd.plotly.v1+json"
 
+  private val JavascriptTypes: Seq[String] = Seq("application/javascript", "text/javascript")
+
   /** MIME types we can render, in order of preference. Interactive charts come first, as their `text/html` fallbacks
-    * usually expect the classic notebook's `require.js`.
+    * usually expect the classic notebook's `require.js`. Javascript then outranks HTML, as in the classic notebook.
     */
   private val RenderableTypes: Seq[String] =
-    VegaTypes ++ Seq(PlotlyType, "text/html", "image/svg+xml") ++ ImageTypes.map(_._1) ++
+    VegaTypes ++ Seq(PlotlyType) ++ JavascriptTypes ++ Seq("text/html", "image/svg+xml") ++ ImageTypes.map(_._1) ++
       Seq("text/markdown", "text/latex", "text/plain")
+
+  private val ScriptClose: Regex = "(?i)</(script)".r
 
   /** A JavaScript library a page loads when one of its outputs needs it. Declaration order is load order. */
   private enum Library(val urls: String*):
@@ -329,6 +333,12 @@ object NotebookConverter:
     ujson.write(json).replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
   end scriptJson
 
+  /** Javascript output, run as an inline script. Only `</script` needs escaping: `<\/script` means the same inside a
+    * string or regex literal, which is in practice the only place it occurs.
+    */
+  private def inlineScript(js: String): String =
+    s"<script>\n${ScriptClose.replaceAllIn(js.stripSuffix("\n"), "<\\\\/$1")}\n</script>"
+
   private def escapeHtml(s: String): String =
     s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;")
 
@@ -505,6 +515,7 @@ object NotebookConverter:
                |  Plotly.newPlot("$chartId", fig.data || [], fig.layout || {}, { responsive: true, ...fig.config });
                |}""".stripMargin
           )
+        case js if JavascriptTypes.contains(js) => inlineScript(text(value))
         case "text/html"     => s"""<div class="nb-output nb-html">\n${text(value).stripSuffix("\n")}\n</div>"""
         case "image/svg+xml" => image("svg", text(value).getBytes(StandardCharsets.UTF_8))
         case "text/markdown" => text(value)
