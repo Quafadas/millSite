@@ -48,6 +48,9 @@ Each output is rendered using the first MIME type it has from this list:
 
 | MIME type | Rendered as |
 |---|---|
+| `application/vnd.vegalite.v5+json` (also v4 and v3), `application/vnd.vega.v5+json` | An interactive chart, drawn by [vega-embed](https://github.com/vega/vega-embed) |
+| `application/vnd.plotly.v1+json` | An interactive chart, drawn by [Plotly](https://plotly.com/javascript/) |
+| `application/javascript` | A script, run on the page, as Jupyter does |
 | `text/html` | Raw HTML, as-is |
 | `image/svg+xml` | An image, written to `foo_files/` |
 | `image/png`, `image/jpeg`, `image/gif` | An image, written to `foo_files/` |
@@ -57,7 +60,15 @@ Each output is rendered using the first MIME type it has from this list:
 
 Text streams (stdout and stderr) and errors are shown as text too. Consecutive writes to the same stream are merged, and terminal colour codes are stripped.
 
-Outputs with none of these types are left out, and the build logs one warning per notebook listing the types it skipped. Interactive widgets (`application/vnd.jupyter.widget-view+json`) need a running kernel, so they render as their `text/plain` fallback if they have one. Vega, Vega-Lite and Plotly specs aren't rendered yet.
+Outputs with none of these types are left out, and the build logs one warning per notebook listing the types it skipped. Interactive widgets (`application/vnd.jupyter.widget-view+json`) need a running kernel, so they render as their `text/plain` fallback if they have one.
+
+### Charts
+
+Vega and Plotly charts are drawn in the browser from the spec stored in the notebook. The JavaScript libraries are loaded from a CDN (jsDelivr for Vega, `cdn.plot.ly` for Plotly), at pinned versions, and only on pages that contain a chart of that kind. Readers therefore need to be online to see charts.
+
+Charts are preferred over a `text/html` fallback, because the HTML that kernels write for Plotly usually expects the classic notebook's `require.js`, which a static page doesn't have.
+
+Some libraries draw charts with a Javascript output instead, for example dedav4s's `almond_js` target. Those work too: the script runs on the page and loads whatever it needs itself.
 
 ## Cell tags
 
@@ -85,6 +96,7 @@ Outputs carry CSS classes you can target from your own stylesheet:
 | `nb-result` | Plain text results |
 | `nb-error` | Errors |
 | `nb-html` | HTML outputs |
+| `nb-vega`, `nb-plotly` | Charts |
 | `nb-image` | Images |
 | `nb-latex` | LaTeX source |
 | `nb-prompt` | `In [n]:` prompts |
@@ -93,6 +105,6 @@ Outputs carry CSS classes you can target from your own stylesheet:
 
 ## Caveats
 
-- HTML outputs are included verbatim, scripts and all. That's fine for your own notebooks, but don't publish notebooks you don't trust.
+- HTML and Javascript outputs are included verbatim, and their scripts run when the page loads. That's fine for your own notebooks, but don't publish notebooks you don't trust.
 - Markdown cells are parsed by Laika like any other page, so Laika's substitution and directive syntax applies in their prose. Code cells and outputs are unaffected.
-- Outputs that load JavaScript through `require.js`, as Jupyter's classic notebook interface does, won't run on a static page.
+- Other HTML outputs that load JavaScript through `require.js`, as Jupyter's classic notebook interface does, won't run on a static page.
