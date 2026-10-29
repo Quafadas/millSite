@@ -268,11 +268,12 @@ object NotebookConverter:
   private def metadataString(cell: ujson.Value, key: String): Option[String] =
     field(cell, "metadata").flatMap(field(_, key)).flatMap(_.strOpt)
 
+  /** Cell tags, normalised to Jupyter Book's hyphenated spelling so nbconvert's `remove_output` style works too. */
   private def tags(cell: ujson.Value): Set[String] =
     field(cell, "metadata")
       .flatMap(field(_, "tags"))
       .flatMap(_.arrOpt)
-      .map(_.flatMap(_.strOpt).toSet)
+      .map(_.flatMap(_.strOpt).map(_.replace('_', '-')).toSet)
       .getOrElse(Set.empty)
 
   private def escapeMarkdown(s: String): String = s.replaceAll("""([\\`*_\[\]<>])""", "\\\\$1")

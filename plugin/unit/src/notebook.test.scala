@@ -167,6 +167,14 @@ object NotebookConverterTests extends TestSuite:
       assert(md.contains("<details class=\"nb-hidden\"><summary>Show code</summary><pre><code class=\"scala\">"))
     }
 
+    test("nbconvert's underscore tag spellings work too") {
+      val cell = codeCell("val quiet = 1", stdout("NOISY_OUTPUT\n"))
+      cell("metadata") = ujson.Obj("tags" -> ujson.Arr("remove_output"))
+      val md = convert(notebook(cell)).markdown
+      assert(md.contains("val quiet = 1"))
+      assert(!md.contains("NOISY_OUTPUT"))
+    }
+
     test("stripAnsi removes colour and hyperlink sequences") {
       val s = "\u001b[0;31mred\u001b[0m \u001b]8;;https://example.com\u0007link\u001b]8;;\u0007"
       assert(NotebookConverter.stripAnsi(s) == "red link")

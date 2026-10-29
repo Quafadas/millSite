@@ -70,6 +70,8 @@ Cell tags follow the [Jupyter Book](https://jupyterbook.org/en/stable/content/me
 | `remove-output` | Only the code appears |
 | `hide-input` | The code is collapsed behind a "Show code" toggle, and the outputs show as usual |
 
+The underscore spellings used with nbconvert's `TagRemovePreprocessor`, such as `remove_output`, work too.
+
 Markdown cells are rendered as written, including attached images. Raw cells appear only when their format is `text/markdown` or `text/html`.
 
 ## Styling
