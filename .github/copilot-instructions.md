@@ -17,6 +17,7 @@ This plugin combines several documentation tools into a cohesive workflow:
 | `plugin/src/site_plugin.scala` | Main `SiteModule` trait - combines all features into a single entry point with live-reload |
 | `plugin/src/mdoc_plugin.scala` | `MdocModule` - processes `.mdoc.md` files, compiling Scala code blocks |
 | `plugin/src/laika_plugin.scala` | `LaikaModule` - converts markdown to HTML using Laika |
+| `plugin/src/notebook.scala` | `NotebookConverter` - converts Jupyter notebooks (`.ipynb`) to Markdown pages during `stageSite` |
 | `plugin/src/site_jsplugin.scala` | `SiteJsModule` - Scala.js integration for interactive examples |
 | `plugin/src/versions.scala` | Dependency version constants |
 | `plugin/src/quickchange.scala` | File watching utilities for live-reload |
@@ -47,6 +48,8 @@ Test fixtures are in `plugin/unit/resources/`:
 - `mdoc_basic/` - Mdoc processing tests
 - `mdoc_js/` - Scala.js integration tests
 - `unidoc_example/` - API documentation tests
+- `notebook_basic/` - Notebook rendering (hand-written `example.ipynb`, plus a `.ipynb_checkpoints` decoy)
+- `notebook_clash/` - A notebook and a Markdown page with the same name, which must fail the build
 
 ## Working Effectively
 
@@ -58,6 +61,7 @@ Test fixtures are in `plugin/unit/resources/`:
 ## Key Concepts
 
 - Files ending in `.mdoc.md` are processed by Mdoc (Scala code is compiled and output inserted)
+- Files ending in `.ipynb` pass through Mdoc untouched, then `LaikaModule.stageSite` converts them to Markdown from their stored outputs (nothing is executed)
 - The `SiteModule` orchestrates: mdoc → laika → copy API docs → serve
 - Unidoc generates API documentation which is copied into the site output
 
