@@ -3,6 +3,7 @@ package io.github.quafadas.millSite
 import java.nio.charset.StandardCharsets
 import java.util.Base64
 
+import scala.util.control.NonFatal
 import scala.util.matching.Regex
 
 import upickle.default.*
@@ -58,6 +59,9 @@ case class ConvertedNotebook(
   *
   * Hidden inputs use the `@:nbDetails` directive, registered by [[NotebookDirectives]], so the code keeps its syntax
   * highlighting.
+  *
+  * Vega, Vega-Lite and Plotly outputs become a `<div>` plus an inline `<script>` that draws into it. The libraries are
+  * loaded from a CDN, at the versions pinned in [[Versions]], once per page and only on pages that need them.
   */
 object NotebookConverter:
 
@@ -85,6 +89,13 @@ object NotebookConverter:
       |pre.nb-output.nb-error {
       |  background-color: var(--messages-error-light);
       |  border-left-color: var(--messages-error);
+      |}
+      |div.nb-output.nb-vega, div.nb-output.nb-plotly {
+      |  overflow-x: auto;
+      |  margin: 0 0 var(--block-spacing);
+      |}
+      |div.nb-output.nb-vega .vega-embed {
+      |  width: 100%;
       |}
       |div.nb-output.nb-html, div.nb-raw {
       |  overflow-x: auto;
@@ -120,9 +131,33 @@ object NotebookConverter:
   private val ImageTypes: Seq[(String, String)] =
     Seq("image/png" -> "png", "image/jpeg" -> "jpg", "image/gif" -> "gif")
 
-  /** MIME types we can render, in order of preference. */
+  private val VegaTypes: Seq[String] =
+    Seq(
+      "application/vnd.vegalite.v5+json",
+      "application/vnd.vegalite.v4+json",
+      "application/vnd.vegalite.v3+json",
+      "application/vnd.vega.v5+json"
+    )
+
+  private val PlotlyType = "application/vnd.plotly.v1+json"
+
+  /** MIME types we can render, in order of preference. Interactive charts come first, as their `text/html` fallbacks
+    * usually expect the classic notebook's `require.js`.
+    */
   private val RenderableTypes: Seq[String] =
-    Seq("text/html", "image/svg+xml") ++ ImageTypes.map(_._1) ++ Seq("text/markdown", "text/latex", "text/plain")
+    VegaTypes ++ Seq(PlotlyType, "text/html", "image/svg+xml") ++ ImageTypes.map(_._1) ++
+      Seq("text/markdown", "text/latex", "text/plain")
+
+  /** A JavaScript library a page loads when one of its outputs needs it. Declaration order is load order. */
+  private enum Library(val urls: String*):
+    case Vega
+        extends Library(
+          s"https://cdn.jsdelivr.net/npm/vega@${Versions.vegaVersion}/build/vega.min.js",
+          s"https://cdn.jsdelivr.net/npm/vega-lite@${Versions.vegaLiteVersion}/build/vega-lite.min.js",
+          s"https://cdn.jsdelivr.net/npm/vega-embed@${Versions.vegaEmbedVersion}/build/vega-embed.min.js"
+        )
+    case Plotly extends Library(s"https://cdn.plot.ly/plotly-${Versions.plotlyVersion}.min.js")
+  end Library
 
   /** Removes ANSI escape sequences, as found in IPython tracebacks and coloured terminal output. */
   def stripAnsi(s: String): String = AnsiEscape.replaceAllIn(s, "")
@@ -172,7 +207,13 @@ object NotebookConverter:
           )}" download>Download notebook</a></p>""")
       else Seq.empty
 
-    val markdown = (title +: download ++: rest).filter(_.nonEmpty).mkString("", "\n\n", "\n")
+    val scripts = Library.values.toSeq
+      .filter(ctx.libraries.contains)
+      .flatMap(_.urls)
+      .map(url => s"""<script src="$url"></script>""")
+    val libraries = Option.when(scripts.nonEmpty)(scripts.mkString("\n")).toSeq
+
+    val markdown = (title +: download ++: libraries ++: rest).filter(_.nonEmpty).mkString("", "\n\n", "\n")
     ConvertedNotebook(markdown, ctx.assets.toSeq, ctx.skipped.toSeq.sorted)
   end convert
 
@@ -213,7 +254,7 @@ object NotebookConverter:
 
       val converted =
         try convert(json, baseName, opts)
-        catch case e: NotebookException => throw NotebookException(s"$rel: ${e.getMessage}")
+        catch case NonFatal(e) => throw NotebookException(s"$rel: ${e.getMessage}")
 
       os.write.over(dir / s"$baseName.md", converted.markdown)
       converted.assets.foreach((sub, bytes) => os.write.over(dir / sub, bytes, createFolders = true))
@@ -230,6 +271,7 @@ object NotebookConverter:
     val assetDir: String = s"${baseName.replaceAll("[^A-Za-z0-9._-]", "_")}_files"
     val assets = scala.collection.mutable.ArrayBuffer.empty[(os.SubPath, Array[Byte])]
     val skipped = scala.collection.mutable.SortedSet.empty[String]
+    val libraries = scala.collection.mutable.Set.empty[Library]
 
     /** Records an asset and returns the path to reference it by, relative to the page. */
     def addAsset(fileName: String, bytes: Array[Byte]): String =
@@ -276,6 +318,16 @@ object NotebookConverter:
       .getOrElse(Set.empty)
 
   private def escapeMarkdown(s: String): String = s.replaceAll("""([\\`*_\[\]<>])""", "\\\\$1")
+
+  /** JSON to inline in a `<script>`. Escaping `<`, `>` and `&` (which can only occur inside JSON strings) means the
+    * content can't close the script element, nor be mistaken for markup by Laika.
+    */
+  private def scriptJson(v: ujson.Value): String =
+    val json = v match
+      case ujson.Str(s) => ujson.read(s) // some kernels store the spec as a string
+      case other        => other
+    ujson.write(json).replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
+  end scriptJson
 
   private def escapeHtml(s: String): String =
     s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;")
@@ -427,6 +479,11 @@ object NotebookConverter:
     val data = objectOf(field(out, "data"))
     ctx.skipped ++= data.keys.filterNot(RenderableTypes.contains)
 
+    val chartId = s"nb-vis-$cellIdx-$outIdx"
+
+    def chart(cls: String, script: String): String =
+      s"""<div class="nb-output $cls">\n<div id="$chartId"></div>\n<script>$script</script>\n</div>"""
+
     def image(ext: String, bytes: Array[Byte]): String =
       val path = ctx.addAsset(s"cell${cellIdx}_out$outIdx.$ext", bytes)
       s"@:style(nb-output nb-image)\n![]($path)\n@:@"
@@ -435,6 +492,19 @@ object NotebookConverter:
     RenderableTypes.find(data.contains).map { mime =>
       val value = data(mime)
       mime match
+        case vega if VegaTypes.contains(vega) =>
+          ctx.libraries += Library.Vega
+          chart("nb-vega", s"""vegaEmbed("#$chartId", ${scriptJson(value)}).catch(console.error);""")
+        case PlotlyType =>
+          ctx.libraries += Library.Plotly
+          // A block, so each chart's `fig` is scoped to its own script
+          chart(
+            "nb-plotly",
+            s"""{
+               |  const fig = ${scriptJson(value)};
+               |  Plotly.newPlot("$chartId", fig.data || [], fig.layout || {}, { responsive: true, ...fig.config });
+               |}""".stripMargin
+          )
         case "text/html"     => s"""<div class="nb-output nb-html">\n${text(value).stripSuffix("\n")}\n</div>"""
         case "image/svg+xml" => image("svg", text(value).getBytes(StandardCharsets.UTF_8))
         case "text/markdown" => text(value)

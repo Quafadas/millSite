@@ -32,6 +32,17 @@ object NotebookConverterTests extends TestSuite:
   private def stdout(text: String): ujson.Value =
     ujson.Obj("output_type" -> "stream", "name" -> "stdout", "text" -> text)
 
+  private def displayData(data: (String, ujson.Value)*): ujson.Value =
+    ujson.Obj("output_type" -> "display_data", "metadata" -> ujson.Obj(), "data" -> ujson.Obj.from(data))
+
+  private val vegaScripts = Seq(
+    s"<script src=\"https://cdn.jsdelivr.net/npm/vega@${Versions.vegaVersion}/build/vega.min.js\"></script>",
+    s"<script src=\"https://cdn.jsdelivr.net/npm/vega-lite@${Versions.vegaLiteVersion}/build/vega-lite.min.js\"></script>",
+    s"<script src=\"https://cdn.jsdelivr.net/npm/vega-embed@${Versions.vegaEmbedVersion}/build/vega-embed.min.js\"></script>"
+  ).mkString("\n")
+
+  private val plotlyScript = s"<script src=\"https://cdn.plot.ly/plotly-${Versions.plotlyVersion}.min.js\"></script>"
+
   private def convert(nb: ujson.Value, opts: NotebookOptions = NotebookOptions()): ConvertedNotebook =
     NotebookConverter.convert(nb, "nb", opts)
 
@@ -167,6 +178,57 @@ object NotebookConverterTests extends TestSuite:
       assert(md.contains("<details class=\"nb-hidden\"><summary>Show code</summary><pre><code class=\"scala\">"))
     }
 
+    test("vega-lite outputs are drawn with vega-embed, loaded once at the top of the page") {
+      val spec = ujson.Obj("mark" -> "bar", "title" -> "</script><b>&</b>")
+      val chart = displayData("application/vnd.vegalite.v5+json" -> spec, "text/plain" -> "VEGA_FALLBACK")
+      val md = convert(notebook(codeCell("plot()", chart), codeCell("plot()", chart))).markdown
+
+      assert(md.contains(s"Download notebook</a></p>\n\n$vegaScripts\n\n```scala"))
+      assert(md.split("vega-embed.min.js", -1).length == 2)
+      assert(
+        md.contains(
+          "<div class=\"nb-output nb-vega\">\n<div id=\"nb-vis-0-0\"></div>\n<script>vegaEmbed(\"#nb-vis-0-0\""
+        )
+      )
+      assert(md.contains("vegaEmbed(\"#nb-vis-1-0\""))
+      assert(md.contains("\"title\":\"\\u003c/script\\u003e\\u003cb\\u003e\\u0026\\u003c/b\\u003e\""))
+      assert(!md.contains("</script><b>"))
+      assert(!md.contains("VEGA_FALLBACK"))
+    }
+
+    test("vega specs stored as a JSON string are parsed") {
+      val chart = displayData("application/vnd.vega.v5+json" -> "{\"mark\": \"line\"}")
+      val md = convert(notebook(codeCell("plot()", chart))).markdown
+      assert(md.contains("vegaEmbed(\"#nb-vis-0-0\", {\"mark\":\"line\"})"))
+    }
+
+    test("plotly outputs are drawn with Plotly, ahead of their require.js html fallback") {
+      val fig = ujson.Obj("data" -> ujson.Arr(ujson.Obj("type" -> "scatter")), "layout" -> ujson.Obj())
+      val chart =
+        displayData("application/vnd.plotly.v1+json" -> fig, "text/html" -> "<script>require(['plotly'])</script>")
+      val md = convert(notebook(codeCell("plot()", chart))).markdown
+
+      assert(md.contains(s"Download notebook</a></p>\n\n$plotlyScript\n\n```scala"))
+      assert(md.contains("<div class=\"nb-output nb-plotly\">\n<div id=\"nb-vis-0-0\"></div>\n<script>{"))
+      assert(md.contains("const fig = {\"data\":[{\"type\":\"scatter\"}],\"layout\":{}};"))
+      assert(md.contains("Plotly.newPlot(\"nb-vis-0-0\""))
+      assert(!md.contains("require("))
+      assert(!md.contains("vega"))
+    }
+
+    test("convertTree names the notebook when a conversion fails") {
+      val dir = os.temp.dir()
+      val chart = displayData("application/vnd.vega.v5+json" -> "{not json")
+      os.write(dir / "broken.ipynb", ujson.write(notebook(codeCell("plot()", chart))))
+      val e = assertThrows[NotebookConverter.NotebookException](NotebookConverter.convertTree(dir, NotebookOptions()))
+      assert(e.getMessage.startsWith("broken.ipynb: "))
+    }
+
+    test("pages without charts load no libraries") {
+      val md = convert(notebook(codeCell("1 + 1", stdout("2\n")))).markdown
+      assert(!md.contains("<script"))
+    }
+
     test("stripAnsi removes colour and hyperlink sequences") {
       val s = "\u001b[0;31mred\u001b[0m \u001b]8;;https://example.com\u0007link\u001b]8;;\u0007"
       assert(NotebookConverter.stripAnsi(s) == "red link")
@@ -206,6 +268,20 @@ object NotebookSiteTests extends TestSuite:
         assert(html.contains("<details class=\"nb-hidden\"><summary>Show code</summary>"))
         assert(html.contains("<p class=\"nb-output nb-image\"><img src=\"example_files/cell3_out0.png\""))
         assert(html.contains("pre.nb-output"))
+        assert(
+          html.contains(
+            s"<script src=\"https://cdn.jsdelivr.net/npm/vega@${Versions.vegaVersion}/build/vega.min.js\"></script>"
+          )
+        )
+        assert(html.contains(s"<script src=\"https://cdn.plot.ly/plotly-${Versions.plotlyVersion}.min.js\"></script>"))
+        // Laika indents raw HTML lines when rendering, so check the pieces separately
+        assert(html.contains("<div id=\"nb-vis-11-0\"></div>"))
+        assert(html.contains("<script>vegaEmbed(\"#nb-vis-11-0\""))
+        assert(html.contains("Plotly.newPlot(\"nb-vis-12-0\""))
+        assert(!html.contains("</script><b>not markup</b>"))
+        assert(!html.contains("VEGA_FALLBACK"))
+        assert(!html.contains("require(['plotly']"))
+        assert(!os.read(site / "index.html").contains("vega-embed.min.js"))
         assert(!html.contains("\u001b"))
         assert(!html.contains("SHOULD_NOT_APPEAR"))
 
